@@ -1,0 +1,22 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "./",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": [
+    "**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
+  "references": [
+    { "path": "../shared" }
+  ]
+}

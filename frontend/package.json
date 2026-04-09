@@ -1,0 +1,16 @@
+{
+  "name": "@emotion-hero/frontend",
+  "version": "1.0.0",
+  "description": "Frontend client for real-time emotional visualization",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --build && npx esbuild main.ts --bundle --outfile=dist/bundle.js --format=esm --sourcemap --platform=browser",
+    "dev": "tsc --watch",
+    "serve": "python3 -m http.server 3000 --bind 0.0.0.0",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/webgl2": "^0.0.11",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Hero - Real-time Emotional Visualization</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-mono: 'IBM Plex Mono', monospace;
+
+            /* Visualization-derived palette */
+            --color-serene: rgb(135, 169, 158);
+            --color-vibrant: rgb(173, 147, 135);
+            --color-melancholy: rgb(145, 155, 175);
+            --color-curious: rgb(165, 160, 145);
+            --color-content: rgb(155, 165, 145);
+
+            /* UI chrome colors */
+            --color-accent: rgb(135, 169, 158);
+            --color-accent-bright: rgb(160, 195, 183);
+            --color-warning: rgb(195, 175, 140);
+            --color-error: rgb(180, 130, 130);
+            --color-success: rgb(135, 169, 158);
+
+            --color-surface: rgba(20, 20, 20, 0.92);
+            --color-border: rgba(135, 169, 158, 0.2);
+            --color-label: rgba(255, 255, 255, 0.45);
+            --color-text: rgba(255, 255, 255, 0.85);
+            --color-text-dim: rgba(255, 255, 255, 0.3);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: var(--color-text);
+            font-family: var(--font-mono);
+            overflow: hidden;
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+        }
+
+        /* Loading overlay */
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            z-index: 2000;
+            transition: opacity 0.8s ease-out;
+        }
+
+        #loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #loading-overlay .loading-heart {
+            font-size: 11px;
+            line-height: 1.1;
+            color: rgba(135, 169, 158, 0.3);
+            white-space: pre;
+            text-align: center;
+            letter-spacing: 0.05em;
+        }
+
+        #loading-overlay .loading-text {
+            margin-top: 24px;
+            font-size: 13px;
+            color: var(--color-label);
+            letter-spacing: 0.1em;
+            text-transform: lowercase;
+        }
+
+        /* WebGL fallback message */
+        #webgl-fallback {
+            display: none;
+            position: fixed;
+            inset: 0;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            z-index: 3000;
+            padding: 32px;
+            text-align: center;
+        }
+
+        #webgl-fallback.visible {
+            display: flex;
+        }
+
+        #webgl-fallback h2 {
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--color-accent);
+            margin: 0 0 16px 0;
+        }
+
+        #webgl-fallback p {
+            font-size: 14px;
+            color: var(--color-label);
+            line-height: 1.6;
+            max-width: 420px;
+            margin: 0;
+        }
+
+        /* Status panel */
+        #status-panel {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 240px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 3px;
+            padding: 14px;
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        #status-panel.collapsed #panel-content {
+            display: none;
+        }
+
+        #panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #panel-header h3 {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-accent);
+            letter-spacing: 0.05em;
+        }
+
+        #panel-toggle {
+            background: none;
+            border: 1px solid transparent;
+            color: var(--color-label);
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px;
+            transition: color 0.15s ease-out, border-color 0.15s ease-out;
+        }
+
+        #panel-toggle:hover {
+            color: var(--color-text);
+            border-color: var(--color-border);
+        }
+
+        #panel-toggle:focus-visible {
+            outline: 2px solid var(--color-accent);
+            outline-offset: 2px;
+        }
+
+        #panel-content {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .status-label {
+            color: var(--color-label);
+        }
+
+        .status-value {
+            color: var(--color-accent);
+        }
+
+        .status-value.connected {
+            color: var(--color-success);
+        }
+
+        .status-value.disconnected {
+            color: var(--color-error);
+        }
+
+        .status-value.connecting {
+            color: var(--color-warning);
+        }
+
+        #status-message {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid var(--color-border);
+            font-size: 12px;
+            min-height: 14px;
+        }
+
+        #status-message.success {
+            color: var(--color-success);
+        }
+
+        #status-message.error {
+            color: var(--color-error);
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: var(--color-text-dim);
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        /* Legend panel */
+        #legend {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 3px;
+            padding: 12px 16px;
+            z-index: 1000;
+            font-size: 14px;
+            min-width: 180px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        #legend h4 {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+            color: var(--color-label);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .legend-label {
+            flex: 1;
+            color: var(--color-text);
+            text-transform: capitalize;
+        }
+
+        .legend-value {
+            font-weight: bold;
+            color: #fff;
+            min-width: 45px;
+            text-align: right;
+        }
+
+        /* Responsive: mobile */
+        @media (max-width: 480px) {
+            #status-panel {
+                top: auto;
+                bottom: 0;
+                right: 0;
+                left: 0;
+                width: 100%;
+                border-radius: 8px 8px 0 0;
+                padding: 12px 16px;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+                max-height: 40vh;
+                overflow-y: auto;
+            }
+
+            #legend {
+                display: none;
+            }
+        }
+
+        /* Responsive: tablet */
+        @media (min-width: 481px) and (max-width: 768px) {
+            #status-panel {
+                width: 200px;
+                padding: 12px;
+            }
+
+            .status-row {
+                font-size: 12px;
+            }
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            #loading-overlay {
+                transition: none;
+            }
+
+            #panel-toggle {
+                transition: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading state -->
+    <div id="loading-overlay">
+        <div class="loading-heart" aria-hidden="true">   ***    ***
+  *****  *****
+ *************
+  ***********
+    *******
+      ***
+       *</div>
+        <div class="loading-text" role="status" aria-live="polite">listening...</div>
+    </div>
+
+    <!-- WebGL2 fallback -->
+    <div id="webgl-fallback" role="alert">
+        <h2>WebGL2 Initialization Failed</h2>
+        <p>Emotion Hero could not initialize WebGL2. This may be a shader compilation error rather than missing browser support. Check the browser console (F12) for details.</p>
+    </div>
+
+    <canvas id="canvas" aria-label="Real-time emotional visualization canvas"></canvas>
+
+    <div id="status-panel" role="complementary" aria-label="Visualization status">
+        <div id="panel-header">
+            <h3>Emotion Hero</h3>
+            <button id="panel-toggle" aria-label="Toggle status panel" aria-expanded="true">&#x25BC;</button>
+        </div>
+        <div id="panel-content">
+            <div class="status-row">
+                <span class="status-label">Connection:</span>
+                <span id="connection-status" class="status-value connecting" role="status">Connecting...</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">ASCII Art:</span>
+                <span id="art-status" class="status-value">&mdash;</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Colors:</span>
+                <span id="colors-status" class="status-value">&mdash;</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Shader:</span>
+                <span id="shader-mode" class="status-value">Voronoi</span>
+            </div>
+            <div id="status-message" role="status" aria-live="polite"></div>
+            <div class="info-text">
+                Keys 1-6: switch shader mode. Place ASCII art (.txt) and colors.txt in backend/content.
+            </div>
+        </div>
+    </div>
+
+    <div id="legend" role="complementary" aria-label="Live emotion values">
+        <h4>Live Emotions</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgb(135, 169, 158);"></div>
+            <span class="legend-label">Serene</span>
+            <span class="legend-value" id="val-serene">0%</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgb(173, 147, 135);"></div>
+            <span class="legend-label">Vibrant</span>
+            <span class="legend-value" id="val-vibrant">0%</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgb(145, 155, 175);"></div>
+            <span class="legend-label">Melancholy</span>
+            <span class="legend-value" id="val-melancholy">0%</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgb(165, 160, 145);"></div>
+            <span class="legend-label">Curious</span>
+            <span class="legend-value" id="val-curious">0%</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: rgb(155, 165, 145);"></div>
+            <span class="legend-label">Content</span>
+            <span class="legend-value" id="val-content">0%</span>
+        </div>
+    </div>
+
+    <script type="module" src="dist/bundle.js"></script>
+</body>
+</html>
