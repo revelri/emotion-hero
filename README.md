@@ -1,6 +1,12 @@
 # Zeitgeist
 
-Real-time sentiment visualization engine that ingests social media streams (Bluesky Jetstream), classifies emotional signals via keyword detection, and renders the output as animated WebGL2 ASCII art.
+Real-time sentiment visualization engine. Ingests Bluesky Jetstream, classifies emotional signals via keyword detection, and renders the output as animated WebGL2 ASCII art.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)]()
+[![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)]()
+
+---
 
 ## Overview
 
@@ -163,4 +169,4 @@ zeitgeist/
 
 ## License
 
-[License TBD]
+[MIT](LICENSE)
