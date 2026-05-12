@@ -43,7 +43,7 @@ describe('EmotionDetector', () => {
       const signals: EmotionalSignal[] = [];
       detector.on('signal', (s: EmotionalSignal) => signals.push(s));
 
-      detector.processRawData('the weather is nice');
+      detector.processRawData('xyzzy plugh frobnitz');
 
       expect(signals).toHaveLength(1);
       const allZero = Object.values(signals[0].emotions).every((v) => v === 0);
