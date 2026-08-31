@@ -11,7 +11,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "ws": "^8.16.0"
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
