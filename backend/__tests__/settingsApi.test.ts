@@ -227,6 +227,25 @@ describe('SettingsApi', () => {
     });
   });
 
+  it('binds the unauthenticated settings API to loopback by default', () => {
+    const address = api.getHttpServer()?.address();
+    expect(address).not.toBeNull();
+    expect(typeof address).toBe('object');
+    expect((address as { address: string }).address).toBe('127.0.0.1');
+  });
+
+  it('rejects oversized update bodies before parsing them', async () => {
+    const res = await makeFetch(TEST_PORT, 'PUT', '/api/settings/keywords', {
+      happy: 'x'.repeat(1_048_576),
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it('does not resolve preset IDs outside the presets directory', async () => {
+    const res = await makeFetch(TEST_PORT, 'PUT', '/api/presets/apply', { id: '../package' });
+    expect(res.status).toBe(404);
+  });
+
   describe('404 handling', () => {
     it('returns 404 for unknown routes', async () => {
       const res = await makeFetch(TEST_PORT, 'GET', '/api/unknown');

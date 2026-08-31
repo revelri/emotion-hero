@@ -48,7 +48,7 @@ interface ContentMessage {
 export interface WsServerConfig {
   /** Port number for the WebSocket server (ignored if httpServer is provided) */
   port: number;
-  /** Host to bind to (default: '0.0.0.0', ignored if httpServer is provided) */
+  /** Host to bind to (default: '127.0.0.1', ignored if httpServer is provided) */
   host?: string;
   /** Maximum updates per second (default: 10) */
   maxUpdatesPerSecond?: number;
@@ -103,7 +103,7 @@ export class WsServer extends EventEmitter {
     } else {
       this.server = new WebSocket.WebSocketServer({
         port: this.config.port,
-        host: this.config.host ?? '0.0.0.0',
+        host: this.config.host ?? '127.0.0.1',
       });
     }
 

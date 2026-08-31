@@ -19,9 +19,17 @@ const SHADER_MODE_NAMES = [
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const MAX_REQUEST_BODY_BYTES = 1_048_576;
+
+function isWithinDirectory(directory: string, candidate: string): boolean {
+  const relative = path.relative(directory, candidate);
+  return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
 
 interface SettingsApiConfig {
   port?: number;
+  /** Address to bind the local control plane to. Defaults to loopback. */
+  host?: string;
   firehose: { getStatus(): unknown; getEffectiveEndpoint?(): string; getDefaultEndpoint?(): string; config: { endpoint?: string; retryInterval: number; maxRetries: number }; setConfig?(c: Partial<{ endpoint: string; retryInterval: number; maxRetries: number }>): void };
   emotionDetector: EmotionDetector;
   signalProcessor: SignalProcessor;
@@ -46,16 +54,16 @@ function html(res: http.ServerResponse, content: string): void {
   res.end(content);
 }
 
-function findAvailablePort(startPort: number, originalPort?: number): Promise<number> {
+function findAvailablePort(startPort: number, host: string, originalPort?: number): Promise<number> {
   const base = originalPort ?? startPort;
   return new Promise((resolve) => {
     const server = http.createServer();
-    server.listen(startPort, '0.0.0.0', () => {
+    server.listen(startPort, host, () => {
       server.close(() => resolve(startPort));
     });
     server.on('error', () => {
       if (startPort - base < 10) {
-        resolve(findAvailablePort(startPort + 1, base));
+        resolve(findAvailablePort(startPort + 1, host, base));
       } else {
         resolve(startPort);
       }
@@ -66,6 +74,7 @@ function findAvailablePort(startPort: number, originalPort?: number): Promise<nu
 export class SettingsApi extends EventEmitter {
   private server: http.Server | null = null;
   private port: number;
+  private host: string;
   private config: SettingsApiConfig;
   private startTime: number = Date.now();
   private settingsHtml: string | null = null;
@@ -75,6 +84,10 @@ export class SettingsApi extends EventEmitter {
     super();
     this.config = config;
     this.port = config.port ?? 8081;
+    // Settings updates can change the live source endpoint and visualization.
+    // Keep this unauthenticated control plane private unless an operator
+    // explicitly opts into a network-facing deployment.
+    this.host = config.host ?? '127.0.0.1';
   }
 
   async start(): Promise<void> {
@@ -97,11 +110,14 @@ export class SettingsApi extends EventEmitter {
     ];
     this.vizDir = candidates.find((p) => fs.existsSync(path.join(p, 'index.html'))) ?? null;
 
-    this.port = await findAvailablePort(this.port);
+    this.port = await findAvailablePort(this.port, this.host);
     this.startTime = Date.now();
 
     this.server = http.createServer((req, res) => this.handleRequest(req, res));
-    this.server.listen(this.port, '0.0.0.0');
+    await new Promise<void>((resolve, reject) => {
+      this.server!.once('error', reject);
+      this.server!.listen(this.port, this.host, () => resolve());
+    });
     this.emit('started', this.port);
   }
 
@@ -145,8 +161,21 @@ export class SettingsApi extends EventEmitter {
 
     if (req.method === 'PUT') {
       let raw = '';
-      req.on('data', (chunk: Buffer) => { raw += chunk.toString(); });
+      let bodyBytes = 0;
+      let tooLarge = false;
+      req.on('data', (chunk: Buffer) => {
+        bodyBytes += chunk.length;
+        if (bodyBytes > MAX_REQUEST_BODY_BYTES) {
+          tooLarge = true;
+          return;
+        }
+        raw += chunk.toString();
+      });
       req.on('end', () => {
+        if (tooLarge) {
+          json(res, { error: 'Request body must not exceed 1 MiB' }, 413);
+          return;
+        }
         let body: unknown;
         try { body = JSON.parse(raw); } catch { body = null; }
         this.handlePut(url.pathname, body, res);
@@ -191,9 +220,10 @@ export class SettingsApi extends EventEmitter {
   }
 
   private loadPreset(id: string): Record<string, unknown> | null {
-    const file = path.join(this.getPresetsDir(), `${id}.json`);
+    const directory = this.getPresetsDir();
+    const file = path.resolve(directory, `${id}.json`);
+    if (!isWithinDirectory(directory, file)) return null;
     if (!fs.existsSync(file)) return null;
-    if (!path.normalize(file).startsWith(this.getPresetsDir())) return null;
     try { return JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, unknown>; } catch { return null; }
   }
 
@@ -206,8 +236,8 @@ export class SettingsApi extends EventEmitter {
     let rel = pathname.replace(/^\/viz\/?/, '') || 'index.html';
     if (rel.endsWith('/')) rel += 'index.html';
     // Path traversal guard
-    const resolved = path.normalize(path.join(this.vizDir, rel));
-    if (!resolved.startsWith(this.vizDir)) {
+    const resolved = path.resolve(this.vizDir, rel);
+    if (!isWithinDirectory(this.vizDir, resolved)) {
       json(res, { error: 'forbidden' }, 403);
       return;
     }

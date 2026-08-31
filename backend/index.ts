@@ -203,8 +203,12 @@ class EmotionalVisualizationBackend {
     // Start the settings HTTP server first so we can share its http.Server
     // with the WS server — single port for the whole consolidated backend.
     const settingsPort = parseInt(process.env.SETTINGS_PORT || '8081', 10);
+    // The settings API is an unauthenticated control plane. Bind it locally by
+    // default; deployments that intentionally expose it can set SETTINGS_HOST.
+    const settingsHost = process.env.SETTINGS_HOST || '127.0.0.1';
     this.settingsApi = new SettingsApi({
       port: settingsPort,
+      host: settingsHost,
       firehose: this.firehose as any,
       emotionDetector: this.emotionDetector,
       signalProcessor: this.signalProcessor,
