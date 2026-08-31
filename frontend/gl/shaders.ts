@@ -35,6 +35,7 @@ export const SHADER_MODE_NAMES = [
     'Lissajous',
     'Phyllotaxis',
     'Ink Flow',
+    'Readme Hero',
 ];
 
 // ---------------------------------------------------------------------------
@@ -46,10 +47,10 @@ precision highp float;
 
 in vec2 v_uv;
 uniform sampler2D u_asciiMask;
-uniform vec3 u_emotionColors[5];
-uniform float u_emotionValues[5];
+uniform vec3 u_emotionColors[4];
+uniform float u_emotionValues[4];
 uniform float u_time;
-uniform float u_emotionVelocities[5];
+uniform float u_emotionVelocities[4];
 uniform sampler2D uPrevFrame;
 uniform float uFeedbackStrength;
 uniform float uEnableFeedback;
@@ -161,7 +162,7 @@ vec3 okLabToSrgb(vec3 lab) {
 // --- Helpers ---
 float totalVel() {
     float tv = 0.0;
-    for (int i = 0; i < 5; i++) tv += u_emotionVelocities[i];
+    for (int i = 0; i < 4; i++) tv += u_emotionVelocities[i];
     return tv;
 }
 
@@ -169,16 +170,15 @@ vec3 getEmotionColor(int idx) {
     if (idx == 0) return u_emotionColors[0];
     if (idx == 1) return u_emotionColors[1];
     if (idx == 2) return u_emotionColors[2];
-    if (idx == 3) return u_emotionColors[3];
-    return u_emotionColors[4];
+    return u_emotionColors[3];
 }
 
 // --- Motion-vector temporal feedback ---
 void applyMotionVectorFeedback(vec2 sampleUV) {
     if (uEnableFeedback > 0.5) {
         vec2 motionVec = vec2(0.0);
-        for (int i = 0; i < 5; i++) {
-            float angle = float(i) * 1.2566; // 2*PI/5
+        for (int i = 0; i < 4; i++) {
+            float angle = float(i) * 1.5708; // 2*PI/4
             motionVec += vec2(cos(angle), sin(angle)) * u_emotionVelocities[i];
         }
         motionVec *= 0.01;
@@ -213,7 +213,7 @@ const voronoiBlock = `
             );
             float cellHash = snoise(neighbor * 7.3 + 50.0);
             float cumulative = 0.0;
-            int emotion = 4;
+            int emotion = 3;
             float threshold = cellHash * 0.5 + 0.5;
             cumulative += u_emotionValues[0];
             if (threshold < cumulative) emotion = 0;
@@ -223,10 +223,6 @@ const voronoiBlock = `
                 else {
                     cumulative += u_emotionValues[2];
                     if (threshold < cumulative) emotion = 2;
-                    else {
-                        cumulative += u_emotionValues[3];
-                        if (threshold < cumulative) emotion = 3;
-                    }
                 }
             }
             vec2 seedPos = (neighbor + seedOffset) * cellSize;
@@ -343,11 +339,11 @@ void main() {
     vec4 maskSample = texture(u_asciiMask, v_uv);
     float maskAlpha = maskSample.a;
 
-    // Metaball field: 1 ball per emotion (5 total)
+    // Metaball field: 1 ball per emotion (4 total)
     float totalField = 0.0;
     vec3 colorAccum = vec3(0.0);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 center = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.4 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.4 + 0.5
@@ -382,7 +378,7 @@ void main() {
     // Color injection at drifting source points per emotion
     float injection = 0.0;
     vec3 injectedColor = vec3(0.0);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 source = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.35 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.35 + 0.5
@@ -411,8 +407,8 @@ void main() {
     // Motion-vector feedback (lighter since advection already provides persistence)
     if (uEnableFeedback > 0.5) {
         vec2 motionVec = vec2(0.0);
-        for (int i = 0; i < 5; i++) {
-            float angle = float(i) * 1.2566;
+        for (int i = 0; i < 4; i++) {
+            float angle = float(i) * 1.5708;
             motionVec += vec2(cos(angle), sin(angle)) * u_emotionVelocities[i];
         }
         motionVec *= 0.005; // Lighter than other modes
@@ -440,7 +436,7 @@ void main() {
     // Map V concentration to emotion colors based on nearest source
     float totalWeight = 0.0;
     vec3 colorAccum = vec3(0.0);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 source = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.35 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.35 + 0.5
@@ -474,20 +470,19 @@ void main() {
 
     // 5 mode pairs: (n, m) per emotion
     // Serene: (2,1), Vibrant: (5,4), Melancholy: (3,1), Curious: (4,3), Content: (3,3)
-    float modeN[5];
-    float modeM[5];
+    float modeN[4];
+    float modeM[4];
     modeN[0] = 2.0; modeM[0] = 1.0;
     modeN[1] = 5.0; modeM[1] = 4.0;
     modeN[2] = 3.0; modeM[2] = 1.0;
     modeN[3] = 4.0; modeM[3] = 3.0;
-    modeN[4] = 3.0; modeM[4] = 3.0;
 
     float field = 0.0;
     float totalAmp = 0.0;
     vec3 colorAccum = vec3(0.0);
     float PI = 3.14159265;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         float amp = max(u_emotionValues[i], 0.1);
         float phi = u_emotionVelocities[i] * u_time * 2.0;
         float n = modeN[i];
@@ -532,7 +527,7 @@ void main() {
     vec3 colorAccum = vec3(0.0);
     float totalWeight = 0.0;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         float amp = max(u_emotionValues[i], 0.1);
 
         // Drifting source positions
@@ -579,17 +574,16 @@ void main() {
     float tv = totalVel();
 
     // 5 preset c-values blended by emotion values
-    vec2 cPresets[5];
+    vec2 cPresets[4];
     cPresets[0] = vec2(-0.4, 0.6);
     cPresets[1] = vec2(0.285, 0.01);
     cPresets[2] = vec2(-0.8, 0.156);
     cPresets[3] = vec2(-0.7269, 0.1889);
-    cPresets[4] = vec2(0.0, 0.8);
 
     // Blend c-values with floor so Julia set is always interesting
     vec2 cBlend = vec2(0.0);
     float totalVal = 0.0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         float v = max(u_emotionValues[i], 0.1);
         cBlend += cPresets[i] * v;
         totalVal += v;
@@ -619,8 +613,8 @@ void main() {
     // Weighted emotion color blend — always contributes
     vec3 lab = vec3(0.0);
     float wTotal = 0.0;
-    for (int i = 0; i < 5; i++) {
-        float w = max(u_emotionValues[i], 0.1) * (0.5 + 0.5 * sin(angle + float(i) * 1.2566));
+    for (int i = 0; i < 4; i++) {
+        float w = max(u_emotionValues[i], 0.1) * (0.5 + 0.5 * sin(angle + float(i) * 1.5708));
         w = max(w, 0.0);
         lab += srgbToOkLab(getEmotionColor(i)) * w;
         wTotal += w;
@@ -650,7 +644,7 @@ void main() {
     vec2 lensAccum = vec2(0.0);
 
     // Emotion mass positions
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 center = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.35 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.35 + 0.5
@@ -678,7 +672,7 @@ void main() {
     vec2 dv = vec2(0.0, eps);
 
     vec2 lensR = vec2(0.0), lensU = vec2(0.0), lensV = vec2(0.0);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 center = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.35 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.35 + 0.5
@@ -707,7 +701,7 @@ void main() {
     // Emotion-colored background gradient
     vec3 bgLab = vec3(0.0);
     float bgW = 0.0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         float bv = max(u_emotionValues[i], 0.1);
         bgLab += srgbToOkLab(getEmotionColor(i)) * bv;
         bgW += bv;
@@ -737,7 +731,7 @@ void main() {
     float b = mix(-2.0, 2.0, u_emotionValues[1]) + cos(u_time * 0.2) * u_emotionVelocities[1] * 0.5;
     float c = mix(-1.5, 1.5, u_emotionValues[2]) + sin(u_time * 0.4) * u_emotionVelocities[2] * 0.3;
     float d = mix(-1.5, 1.5, u_emotionValues[3]) + cos(u_time * 0.35) * u_emotionVelocities[3] * 0.3;
-    float scale = 1.0 + u_emotionValues[4] * 2.0;
+    float scale = 1.0 + tv * 2.0;
 
     vec2 p = (v_uv * 2.0 - 1.0) / scale;
 
@@ -752,9 +746,9 @@ void main() {
     float angle = atan(p.y, p.x);
     vec3 lab = vec3(0.0);
     float wTotal = 0.0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         if (u_emotionValues[i] < 0.001) continue;
-        float w = u_emotionValues[i] * (0.5 + 0.5 * cos(angle - float(i) * 1.2566));
+        float w = u_emotionValues[i] * (0.5 + 0.5 * cos(angle - float(i) * 1.5708));
         w = max(w, 0.0);
         lab += srgbToOkLab(getEmotionColor(i)) * w;
         wTotal += w;
@@ -813,7 +807,7 @@ void main() {
             );
             float cellHash = snoise(neighbor * 7.3 + 50.0);
             float cumulative = 0.0;
-            int emotion = 4;
+            int emotion = 3;
             float threshold = cellHash * 0.5 + 0.5;
             cumulative += u_emotionValues[0];
             if (threshold < cumulative) emotion = 0;
@@ -823,10 +817,6 @@ void main() {
                 else {
                     cumulative += u_emotionValues[2];
                     if (threshold < cumulative) emotion = 2;
-                    else {
-                        cumulative += u_emotionValues[3];
-                        if (threshold < cumulative) emotion = 3;
-                    }
                 }
             }
             vec2 seedPos = (neighbor + seedOffset) * cellSize;
@@ -887,7 +877,7 @@ void main() {
     float slowTime = u_time * 0.05;
     vec3 colorAccum = vec3(0.0);
     float wTotal = 0.0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 source = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.35 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.35 + 0.5
@@ -942,9 +932,9 @@ void main() {
     // Color by height mapped through emotion palette
     vec3 lab = vec3(0.0);
     float wTotal = 0.0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         if (u_emotionValues[i] < 0.001) continue;
-        float w = u_emotionValues[i] * (0.5 + 0.5 * sin(height * 6.28 + float(i) * 1.2566));
+        float w = u_emotionValues[i] * (0.5 + 0.5 * sin(height * 6.28 + float(i) * 1.5708));
         w = max(w, 0.0);
         lab += srgbToOkLab(getEmotionColor(i)) * w;
         wTotal += w;
@@ -981,7 +971,7 @@ void main() {
     vec2 fieldDir = vec2(0.0);
     float fieldMag = 0.0;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         float strength = u_emotionValues[i];
         if (strength < 0.001) continue;
 
@@ -991,7 +981,7 @@ void main() {
         );
 
         // Dipole orientation rotates with velocity
-        float orientAngle = u_emotionVelocities[i] * u_time * 2.0 + float(i) * 1.2566;
+        float orientAngle = u_emotionVelocities[i] * u_time * 2.0 + float(i) * 1.5708;
         vec2 m = vec2(cos(orientAngle), sin(orientAngle)) * strength;
 
         vec2 r = v_uv - center;
@@ -1053,13 +1043,13 @@ void main() {
     float tv = totalVel();
 
     // Lissajous parameters per emotion
-    float A[5];
-    float fX[5];
-    float fY[5];
-    float phiX[5];
-    float phiY[5];
+    float A[4];
+    float fX[4];
+    float fY[4];
+    float phiX[4];
+    float phiY[4];
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         A[i] = u_emotionValues[i];
         fX[i] = (1.0 + float(i) * 0.7) * (1.0 + u_emotionVelocities[i] * 5.0);
         fY[i] = (1.0 + float(i) * 0.5 + 0.3) * (1.0 + u_emotionVelocities[i] * 3.0);
@@ -1074,11 +1064,11 @@ void main() {
     for (int k = 0; k < 30; k++) {
         float t = float(k) / 30.0 * 6.2832 + u_time * 0.5;
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 4; i++) {
             if (A[i] < 0.01) continue;
             float cx = 0.0;
             float cy = 0.0;
-            for (int j = 0; j < 5; j++) {
+            for (int j = 0; j < 4; j++) {
                 if (A[j] < 0.01) continue;
                 cx += A[j] * sin(fX[j] * t + phiX[j]);
                 cy += A[j] * cos(fY[j] * t + phiY[j]);
@@ -1117,8 +1107,8 @@ void main() {
     // Lighter feedback since trails are built-in
     if (uEnableFeedback > 0.5) {
         vec2 motionVec = vec2(0.0);
-        for (int i = 0; i < 5; i++) {
-            float angle = float(i) * 1.2566;
+        for (int i = 0; i < 4; i++) {
+            float angle = float(i) * 1.5708;
             motionVec += vec2(cos(angle), sin(angle)) * u_emotionVelocities[i];
         }
         motionVec *= 0.003;
@@ -1145,8 +1135,8 @@ void main() {
         if (u_emotionValues[c] < 0.001) continue;
 
         vec2 center = vec2(
-            0.2 + 0.15 * cos(float(c) * 1.2566),
-            0.2 + 0.15 * sin(float(c) * 1.2566)
+            0.2 + 0.15 * cos(float(c) * 1.5708),
+            0.2 + 0.15 * sin(float(c) * 1.5708)
         );
 
         float maxN = u_emotionValues[c] * 200.0;
@@ -1218,9 +1208,9 @@ void main() {
     float velAngle = atan(velY, velX);
     vec3 lab = vec3(0.0);
     float wTotal = 0.0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         if (u_emotionValues[i] < 0.001) continue;
-        float w = u_emotionValues[i] * (0.5 + 0.5 * cos(velAngle - float(i) * 1.2566));
+        float w = u_emotionValues[i] * (0.5 + 0.5 * cos(velAngle - float(i) * 1.5708));
         w = max(w, 0.0);
         lab += srgbToOkLab(getEmotionColor(i)) * w;
         wTotal += w;
@@ -1238,6 +1228,83 @@ void main() {
     float maskAlpha = maskSample.a;
     fragColor = vec4(blendedColor * maskAlpha, maskAlpha);
     applyMotionVectorFeedback(v_uv);
+}`;
+
+// Mode 18 — Readme Hero. Faithful port of hero.svg:
+//   * Four asymmetric blob centres (not on a regular grid, so the picture
+//     doesn't read as quadrants)
+//   * Each blob runs its own own->next->prev->own colour cycle, 24-30 s long
+//     (CSS @keyframes equivalent, with the dominant emotion lingering longer
+//     on its colour — `own_pct = max(ratio, 0.3)`)
+//   * Per-pixel colour is the inverse-square-distance blend of all four blob
+//     cycle colours — melded edges, no hard zone boundaries, no flicker
+//   * Global breathing opacity pulse (8 s base, accelerates with velocity)
+const mode18Main = `
+// Per-zone keyframe cycle, blended in OKLab perceptual space so own->next
+// and next->prev transitions don't pass through muddy grey midpoints.
+vec3 zoneColor(int z, vec3 ownC, vec3 nxtC, vec3 prvC) {
+    float zoneF = float(z);
+    float cycleDur = 24.0 + zoneF * 2.0;
+    float cyclePhase = fract((u_time + zoneF * 3.0) / cycleDur);
+    float ownPct = max(u_emotionValues[z], 0.3);
+    float blendBudget = max(1.0 - ownPct, 0.0001);
+    float p1 = ownPct;
+    float p2 = ownPct + blendBudget * 0.5;
+    vec3 ownL = srgbToOkLab(ownC);
+    vec3 nxtL = srgbToOkLab(nxtC);
+    vec3 prvL = srgbToOkLab(prvC);
+    vec3 lab;
+    if (cyclePhase < p1) lab = ownL;
+    else if (cyclePhase < p2) lab = mix(ownL, nxtL, (cyclePhase - p1) / (blendBudget * 0.5));
+    else lab = mix(nxtL, prvL, (cyclePhase - p2) / (blendBudget * 0.5));
+    return okLabToSrgb(lab);
+}
+
+void main() {
+    vec4 maskSample = texture(u_asciiMask, v_uv);
+    float maskAlpha = maskSample.a;
+
+    // Asymmetric blob layout — avoids the 2x2 quadrant look that a regular
+    // corner grid produces.
+    vec2 blobs[4];
+    blobs[0] = vec2(0.22, 0.28); // happy
+    blobs[1] = vec2(0.78, 0.18); // horny
+    blobs[2] = vec2(0.72, 0.80); // angry
+    blobs[3] = vec2(0.18, 0.68); // depressed
+
+    // Per-zone cycling colours (each computed only with constant args so the
+    // GLSL ES 3.0 array-indexing rules are happy).
+    vec3 c0 = zoneColor(0, getEmotionColor(0), getEmotionColor(1), getEmotionColor(3));
+    vec3 c1 = zoneColor(1, getEmotionColor(1), getEmotionColor(2), getEmotionColor(0));
+    vec3 c2 = zoneColor(2, getEmotionColor(2), getEmotionColor(3), getEmotionColor(1));
+    vec3 c3 = zoneColor(3, getEmotionColor(3), getEmotionColor(0), getEmotionColor(2));
+    vec3 zoneColors[4];
+    zoneColors[0] = c0; zoneColors[1] = c1; zoneColors[2] = c2; zoneColors[3] = c3;
+
+    // Inverse-square geometric weights — always non-zero, always positive,
+    // sum is always defined. No flicker possible.
+    float sumW = 0.0;
+    float w[4];
+    for (int i = 0; i < 4; i++) {
+        vec2 d = v_uv - blobs[i];
+        w[i] = 1.0 / (dot(d, d) + 0.001);
+        sumW += w[i];
+    }
+
+    vec3 blendedColor = vec3(0.0);
+    for (int i = 0; i < 4; i++) {
+        blendedColor += zoneColors[i] * (w[i] / sumW);
+    }
+
+    // Constant 8 s breathing pulse (matches hero.svg's pulse 8s ease-in-out).
+    // u_emotionVelocities is referenced only to nudge the colour-cycle phase
+    // — high emotional energy shifts the breathing slightly so the picture
+    // doesn't feel frozen, but never fast enough to read as flicker.
+    float totalVel = abs(u_emotionVelocities[0]) + abs(u_emotionVelocities[1]) + abs(u_emotionVelocities[2]) + abs(u_emotionVelocities[3]);
+    float pulse = 0.875 + 0.125 * sin(u_time * 6.2832 / 8.0 + totalVel * 0.05);
+
+    float alpha = maskAlpha * pulse;
+    fragColor = vec4(blendedColor * alpha, alpha);
 }`;
 
 // ---------------------------------------------------------------------------
@@ -1263,6 +1330,7 @@ export const fragmentShaderSources: string[] = [
     shaderPreamble + mode15Main,
     shaderPreamble + mode16Main,
     shaderPreamble + mode17Main,
+    shaderPreamble + mode18Main,
 ];
 
 // Keep legacy export for compatibility
@@ -1279,7 +1347,7 @@ in vec2 v_uv;
 uniform sampler2D uState;      // Current R-D state (R=U, G=V)
 uniform vec2 uResolution;      // Texture resolution
 uniform float u_time;
-uniform float u_emotionValues[5];
+uniform float u_emotionValues[4];
 out vec4 fragColor;
 
 // Simplex noise (duplicated for standalone shader)
@@ -1341,7 +1409,7 @@ void main() {
 
     // Inject V at emotion source points
     float slowTime = u_time * 0.05;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 source = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.35 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.35 + 0.5
@@ -1366,8 +1434,8 @@ in vec2 v_uv;
 uniform sampler2D uState;
 uniform vec2 uResolution;
 uniform float u_time;
-uniform float u_emotionValues[5];
-uniform float u_emotionVelocities[5];
+uniform float u_emotionValues[4];
+uniform float u_emotionVelocities[4];
 out vec4 fragColor;
 
 vec3 permute(vec3 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
@@ -1426,7 +1494,7 @@ void main() {
     velY += (n1 - n2) / (2.0 * eps) * 0.05;
 
     // Inject at emotion source points
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 source = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.35 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.35 + 0.5
@@ -1464,8 +1532,8 @@ in vec2 v_uv;
 uniform sampler2D uState;
 uniform vec2 uResolution;
 uniform float u_time;
-uniform float u_emotionValues[5];
-uniform float u_emotionVelocities[5];
+uniform float u_emotionValues[4];
+uniform float u_emotionVelocities[4];
 out vec4 fragColor;
 
 vec3 permute(vec3 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
@@ -1541,7 +1609,7 @@ void main() {
 
     // Inject water at emotion sources
     float slowTime = u_time * 0.05;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 source = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.35 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.35 + 0.5
@@ -1553,11 +1621,11 @@ void main() {
     // Target height from emotion-weighted FBM
     float target = 0.5;
     float totalW = 0.0;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         float w = u_emotionValues[i];
         if (w < 0.001) continue;
         float n = fbm(v_uv * (2.0 + float(i)) + u_time * 0.02 + float(i) * 5.0);
-        if (i == 2) n = -n; // melancholy → valleys
+        if (i == 3) n = -n; // depressed → valleys
         target += n * w;
         totalW += w;
     }
@@ -1586,8 +1654,8 @@ in vec2 v_uv;
 uniform sampler2D uState;
 uniform vec2 uResolution;
 uniform float u_time;
-uniform float u_emotionValues[5];
-uniform float u_emotionVelocities[5];
+uniform float u_emotionValues[4];
+uniform float u_emotionVelocities[4];
 out vec4 fragColor;
 
 vec3 permute(vec3 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
@@ -1641,7 +1709,7 @@ float readDist(vec2 uv, vec2 offset, vec2 texel) {
 void main() {
     vec2 texel = 1.0 / uResolution;
     float totalVel = 0.0;
-    for (int i = 0; i < 5; i++) totalVel += u_emotionVelocities[i];
+    for (int i = 0; i < 4; i++) totalVel += u_emotionVelocities[i];
 
     float tau = 0.5 + totalVel * 2.0;
     tau = clamp(tau, 0.51, 2.0);
@@ -1664,7 +1732,7 @@ void main() {
 
     // Inject emotion sources
     float slowTime = u_time * 0.05;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         vec2 source = vec2(
             snoise(vec2(float(i) * 3.7, slowTime * 0.4)) * 0.35 + 0.5,
             snoise(vec2(float(i) * 5.1 + 100.0, slowTime * 0.3)) * 0.35 + 0.5
@@ -1674,7 +1742,7 @@ void main() {
         rho += inject;
 
         // Add velocity from emotion direction
-        float angle = float(i) * 1.2566 + u_time * 0.5;
+        float angle = float(i) * 1.5708 + u_time * 0.5;
         u_vel += vec2(cos(angle), sin(angle)) * u_emotionVelocities[i] * inject * 2.0;
     }
 

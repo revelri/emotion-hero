@@ -98,7 +98,7 @@ describe('SettingsApi', () => {
     it('returns current keywords', async () => {
       const res = await makeFetch(TEST_PORT, 'GET', '/api/settings');
       const body = JSON.parse(res.data);
-      expect(body.keywords.serene).toContain('calm');
+      expect(body.keywords.happy).toEqual(['happy']);
     });
   });
 
@@ -123,10 +123,10 @@ describe('SettingsApi', () => {
 
   describe('PUT /api/settings/keywords', () => {
     it('updates emotion keywords', async () => {
-      const res = await makeFetch(TEST_PORT, 'PUT', '/api/settings/keywords', { serene: ['zen', 'chill'] });
+      const res = await makeFetch(TEST_PORT, 'PUT', '/api/settings/keywords', { happy: ['zen', 'chill'] });
       expect(res.status).toBe(200);
       const keywords = detector.getKeywords();
-      expect(keywords.serene).toEqual(['zen', 'chill']);
+      expect(keywords.happy).toEqual(['zen', 'chill']);
     });
 
     it('rejects non-object body', async () => {
@@ -135,7 +135,7 @@ describe('SettingsApi', () => {
     });
 
     it('rejects non-string array keywords', async () => {
-      const res = await makeFetch(TEST_PORT, 'PUT', '/api/settings/keywords', { serene: 'not-array' });
+      const res = await makeFetch(TEST_PORT, 'PUT', '/api/settings/keywords', { happy: 'not-array' });
       expect(res.status).toBe(400);
     });
   });

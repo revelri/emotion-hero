@@ -81,6 +81,16 @@ export class Firehose extends EventEmitter {
     this.config = config;
   }
 
+  /** The endpoint actually used (override or default). */
+  getEffectiveEndpoint(): string {
+    return this.config.endpoint || this.DEFAULT_ENDPOINT;
+  }
+
+  /** The built-in default endpoint, used when no override is set. */
+  getDefaultEndpoint(): string {
+    return this.DEFAULT_ENDPOINT;
+  }
+
   /**
    * Start the firehose and establish connection to Bluesky Jetstream
    */

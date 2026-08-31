@@ -1,0 +1,16 @@
+{
+  "name": "Ink Flow Slow",
+  "description": "Lattice-Boltzmann ink dispersion. Diffuse, painterly, very slow — good for ambient displays.",
+  "visualization": {
+    "shaderMode": 17,
+    "feedbackStrength": 0.85,
+    "reducedMotion": false
+  },
+  "signal": {
+    "minCutoff": 0.2,
+    "beta": 0.0005
+  },
+  "detector": {
+    "windowDuration": 4000
+  }
+}

@@ -57,7 +57,7 @@ export class SignalProcessor extends EventEmitter {
     this.emotionStates = new Map();
 
     // Artistic Intent: The One-Euro filter adapts its smoothing to the signal's speed.
-    // When emotions are calm, minCutoff=1.0 gives heavy filtering -- serene stillness.
+    // When emotions are calm, minCutoff=1.0 gives heavy filtering -- still water.
     // When emotions surge, beta=0.007 raises the cutoff to let fast changes through.
     // The result: the visualization breathes slowly in quiet moments and snaps to
     // attention during emotional events, mirroring how human attention works.

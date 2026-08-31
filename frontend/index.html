@@ -12,11 +12,10 @@
             --font-mono: 'IBM Plex Mono', monospace;
 
             /* Visualization-derived palette */
-            --color-serene: rgb(135, 169, 158);
-            --color-vibrant: rgb(173, 147, 135);
-            --color-melancholy: rgb(145, 155, 175);
-            --color-curious: rgb(165, 160, 145);
-            --color-content: rgb(155, 165, 145);
+            --color-happy: rgb(212, 188, 130);
+            --color-horny: rgb(195, 130, 155);
+            --color-angry: rgb(185, 95, 90);
+            --color-depressed: rgb(120, 135, 165);
 
             /* UI chrome colors */
             --color-accent: rgb(135, 169, 158);
@@ -387,29 +386,24 @@
     <div id="legend" role="complementary" aria-label="Live emotion values">
         <h4>Live Emotions</h4>
         <div class="legend-item">
-            <div class="legend-color" style="background: rgb(135, 169, 158);"></div>
-            <span class="legend-label">Serene</span>
-            <span class="legend-value" id="val-serene">0%</span>
+            <div class="legend-color" style="background: rgb(212, 188, 130);"></div>
+            <span class="legend-label">Happy</span>
+            <span class="legend-value" id="val-happy">0%</span>
         </div>
         <div class="legend-item">
-            <div class="legend-color" style="background: rgb(173, 147, 135);"></div>
-            <span class="legend-label">Vibrant</span>
-            <span class="legend-value" id="val-vibrant">0%</span>
+            <div class="legend-color" style="background: rgb(195, 130, 155);"></div>
+            <span class="legend-label">Horny</span>
+            <span class="legend-value" id="val-horny">0%</span>
         </div>
         <div class="legend-item">
-            <div class="legend-color" style="background: rgb(145, 155, 175);"></div>
-            <span class="legend-label">Melancholy</span>
-            <span class="legend-value" id="val-melancholy">0%</span>
+            <div class="legend-color" style="background: rgb(185, 95, 90);"></div>
+            <span class="legend-label">Angry</span>
+            <span class="legend-value" id="val-angry">0%</span>
         </div>
         <div class="legend-item">
-            <div class="legend-color" style="background: rgb(165, 160, 145);"></div>
-            <span class="legend-label">Curious</span>
-            <span class="legend-value" id="val-curious">0%</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: rgb(155, 165, 145);"></div>
-            <span class="legend-label">Content</span>
-            <span class="legend-value" id="val-content">0%</span>
+            <div class="legend-color" style="background: rgb(120, 135, 165);"></div>
+            <span class="legend-label">Depressed</span>
+            <span class="legend-value" id="val-depressed">0%</span>
         </div>
     </div>
 

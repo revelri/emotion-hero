@@ -13,6 +13,7 @@
  */
 
 import * as WebSocket from 'ws';
+import * as http from 'node:http';
 import { EventEmitter } from 'events';
 import { EmotionState } from '@zeitgeist/shared/emotions.js';
 
@@ -45,12 +46,14 @@ interface ContentMessage {
  * Configuration options for the WebSocket server
  */
 export interface WsServerConfig {
-  /** Port number for the WebSocket server */
+  /** Port number for the WebSocket server (ignored if httpServer is provided) */
   port: number;
-  /** Host to bind to (default: '0.0.0.0') */
+  /** Host to bind to (default: '0.0.0.0', ignored if httpServer is provided) */
   host?: string;
   /** Maximum updates per second (default: 10) */
   maxUpdatesPerSecond?: number;
+  /** Optional shared HTTP server to attach to (e.g. the settings API server). When provided, the WS server reuses that port instead of binding its own. */
+  httpServer?: http.Server;
 }
 
 /**
@@ -95,10 +98,14 @@ export class WsServer extends EventEmitter {
       throw new Error('WebSocket server is already running');
     }
 
-    this.server = new WebSocket.WebSocketServer({
-      port: this.config.port,
-      host: this.config.host ?? '0.0.0.0',
-    });
+    if (this.config.httpServer) {
+      this.server = new WebSocket.WebSocketServer({ server: this.config.httpServer });
+    } else {
+      this.server = new WebSocket.WebSocketServer({
+        port: this.config.port,
+        host: this.config.host ?? '0.0.0.0',
+      });
+    }
 
     this.server!.on('connection', (socket: WebSocket.WebSocket) => {
       this.handleConnection(socket);

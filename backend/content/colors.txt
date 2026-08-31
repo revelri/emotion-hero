@@ -1,8 +1,7 @@
 # Emotion color configuration
 # Format: emotion=hexcode
 
-serene=#17fdb4
-vibrant=#ce6636
-melancholy=#96b5f3
-curious=#e9d8a5
-content=#d6e6c6
+happy=#fdc135
+horny=#b28cf8
+angry=#850505
+depressed=#3136c4

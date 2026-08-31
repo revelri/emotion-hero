@@ -1,0 +1,16 @@
+{
+  "name": "Curl Noise Tide",
+  "description": "Divergence-free flow field — emotional currents drift across the canvas. Medium pace.",
+  "visualization": {
+    "shaderMode": 1,
+    "feedbackStrength": 0.75,
+    "reducedMotion": false
+  },
+  "signal": {
+    "minCutoff": 0.5,
+    "beta": 0.003
+  },
+  "detector": {
+    "windowDuration": 2000
+  }
+}

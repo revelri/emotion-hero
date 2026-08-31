@@ -10,8 +10,8 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('Shader mode registry', () => {
-    it('has 18 registered modes', () => {
-        expect(SHADER_MODE_NAMES.length).toBe(18);
+    it('has 19 registered modes', () => {
+        expect(SHADER_MODE_NAMES.length).toBe(19);
     });
 
     it('has matching number of fragment shader sources', () => {
@@ -35,8 +35,8 @@ describe('Shader mode registry', () => {
         expect(unique.size).toBe(SHADER_MODE_NAMES.length);
     });
 
-    it('has enough key bindings for all modes (18 = 10 digits + 8 letters)', () => {
-        expect(SHADER_MODE_NAMES.length).toBeLessThanOrEqual(18);
+    it('has enough key bindings for all modes (19 = 10 digits + 9 letters)', () => {
+        expect(SHADER_MODE_NAMES.length).toBeLessThanOrEqual(19);
     });
 });
 
@@ -294,6 +294,27 @@ shaderContractTests(17, 'Ink Flow', { requiresSimState: 'uLBMState' });
 describe('Mode 17: Ink Flow specifics', () => {
     it('references simulation state', () => {
         expect(fragmentShaderSources[17]).toContain('uLBMState');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Mode 18: Readme Hero
+// ---------------------------------------------------------------------------
+
+shaderContractTests(18, 'Readme Hero');
+
+describe('Mode 18: Readme Hero specifics', () => {
+    it('uses fixed blob positions (no drift)', () => {
+        expect(fragmentShaderSources[18]).toContain('blobs[0]');
+        expect(fragmentShaderSources[18]).toContain('blobs[3]');
+    });
+    it('paints glyphs at full alpha (no field gate)', () => {
+        // Must NOT use a smoothstep gate against totalField (that would re-introduce shadows).
+        expect(fragmentShaderSources[18]).not.toMatch(/smoothstep\([^)]*totalField\)/);
+    });
+    it('has an opacity breathing pulse', () => {
+        expect(fragmentShaderSources[18]).toContain('pulse');
+        expect(fragmentShaderSources[18]).toMatch(/sin\(u_time/);
     });
 });
 

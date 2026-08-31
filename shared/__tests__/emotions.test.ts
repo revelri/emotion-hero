@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { EMOTIONS, EMOTION_MAP, EMOTION_IDS } from '../emotions.js';
 
 describe('EMOTIONS', () => {
-  it('has exactly 5 emotion entries', () => {
-    expect(EMOTIONS).toHaveLength(5);
+  it('has exactly 4 emotion entries', () => {
+    expect(EMOTIONS).toHaveLength(4);
   });
 
   it('each emotion has id, keywords, and colorRGB', () => {
@@ -27,11 +27,10 @@ describe('EMOTIONS', () => {
 
   it('contains expected emotion types', () => {
     const ids = EMOTIONS.map((e) => e.id);
-    expect(ids).toContain('serene');
-    expect(ids).toContain('vibrant');
-    expect(ids).toContain('melancholy');
-    expect(ids).toContain('curious');
-    expect(ids).toContain('content');
+    expect(ids).toContain('happy');
+    expect(ids).toContain('horny');
+    expect(ids).toContain('angry');
+    expect(ids).toContain('depressed');
   });
 });
 

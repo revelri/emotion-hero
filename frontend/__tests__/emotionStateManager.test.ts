@@ -17,11 +17,11 @@ describe('EmotionStateManager', () => {
     it('sets target values from backend data', () => {
       const now = Date.now();
       manager.updateFromBackend(
-        { serene: { value: 0.8, velocity: 0.1 } },
+        { happy: { value: 0.8, velocity: 0.1 } },
         now
       );
 
-      const state = manager.getState('serene');
+      const state = manager.getState('happy');
       expect(state).toBeDefined();
       expect(state!.targetValue).toBe(0.8);
     });
@@ -29,11 +29,11 @@ describe('EmotionStateManager', () => {
     it('drops stale packets', () => {
       const staleTimestamp = Date.now() - 2000;
       manager.updateFromBackend(
-        { serene: { value: 0.8, velocity: 0.1 } },
+        { happy: { value: 0.8, velocity: 0.1 } },
         staleTimestamp
       );
 
-      const state = manager.getState('serene');
+      const state = manager.getState('happy');
       expect(state!.targetValue).toBe(0);
     });
 
@@ -52,7 +52,7 @@ describe('EmotionStateManager', () => {
     it('moves currentValue toward targetValue', () => {
       const now = Date.now();
       manager.updateFromBackend(
-        { serene: { value: 1.0, velocity: 0 } },
+        { happy: { value: 1.0, velocity: 0 } },
         now
       );
 
@@ -60,7 +60,7 @@ describe('EmotionStateManager', () => {
         manager.interpolate(1 / 60);
       }
 
-      const state = manager.getState('serene');
+      const state = manager.getState('happy');
       expect(state!.currentValue).toBeGreaterThan(0);
       expect(state!.currentValue).toBeLessThan(1.0);
     });
@@ -68,7 +68,7 @@ describe('EmotionStateManager', () => {
     it('converges to target over many frames', () => {
       const now = Date.now();
       manager.updateFromBackend(
-        { serene: { value: 0.8, velocity: 0 } },
+        { happy: { value: 0.8, velocity: 0 } },
         now
       );
 
@@ -76,7 +76,7 @@ describe('EmotionStateManager', () => {
         manager.interpolate(1 / 60);
       }
 
-      const state = manager.getState('serene');
+      const state = manager.getState('happy');
       expect(state!.currentValue).toBeCloseTo(0.8, 1);
     });
 
@@ -85,26 +85,26 @@ describe('EmotionStateManager', () => {
 
       const now = Date.now();
       manager.updateFromBackend(
-        { serene: { value: 0.8, velocity: 0 } },
+        { happy: { value: 0.8, velocity: 0 } },
         now
       );
       manager.interpolate(1 / 60);
 
-      const state = manager.getState('serene');
+      const state = manager.getState('happy');
       expect(state!.currentValue).toBe(0.8);
     });
 
     it('clamps deltaTime to prevent huge jumps', () => {
       const now = Date.now();
       manager.updateFromBackend(
-        { serene: { value: 1.0, velocity: 0 } },
+        { happy: { value: 1.0, velocity: 0 } },
         now
       );
 
       // Simulate a huge lag spike (10 seconds)
       manager.interpolate(10.0);
 
-      const state = manager.getState('serene');
+      const state = manager.getState('happy');
       // Should still be reasonable, not have jumped wildly
       expect(state!.currentValue).toBeLessThanOrEqual(1.0);
       expect(state!.currentValue).toBeGreaterThanOrEqual(0);
@@ -117,7 +117,7 @@ describe('EmotionStateManager', () => {
 
       const now = Date.now();
       manager.updateFromBackend(
-        { serene: { value: 0.8, velocity: 0 } },
+        { happy: { value: 0.8, velocity: 0 } },
         now
       );
 
@@ -134,7 +134,7 @@ describe('EmotionStateManager', () => {
         manager.interpolate(1 / 60);
       }
 
-      const state = manager.getState('serene');
+      const state = manager.getState('happy');
       // Should have decayed toward 0
       expect(state!.currentValue).toBeLessThan(0.4);
 
@@ -146,7 +146,7 @@ describe('EmotionStateManager', () => {
 
       const now = Date.now();
       manager.updateFromBackend(
-        { serene: { value: 0.8, velocity: 0 } },
+        { happy: { value: 0.8, velocity: 0 } },
         now
       );
 
@@ -155,11 +155,11 @@ describe('EmotionStateManager', () => {
 
       // New data arrives
       manager.updateFromBackend(
-        { serene: { value: 0.9, velocity: 0 } },
+        { happy: { value: 0.9, velocity: 0 } },
         Date.now()
       );
 
-      const state = manager.getState('serene');
+      const state = manager.getState('happy');
       expect(state!.targetValue).toBe(0.9);
 
       vi.useRealTimers();
@@ -174,12 +174,11 @@ describe('EmotionStateManager', () => {
   describe('getCurrentStates', () => {
     it('returns all emotion states', () => {
       const states = manager.getCurrentStates();
-      expect(Object.keys(states).length).toBeGreaterThanOrEqual(5);
-      expect(states).toHaveProperty('serene');
-      expect(states).toHaveProperty('vibrant');
-      expect(states).toHaveProperty('melancholy');
-      expect(states).toHaveProperty('curious');
-      expect(states).toHaveProperty('content');
+      expect(Object.keys(states).length).toBeGreaterThanOrEqual(4);
+      expect(states).toHaveProperty('happy');
+      expect(states).toHaveProperty('horny');
+      expect(states).toHaveProperty('angry');
+      expect(states).toHaveProperty('depressed');
     });
 
     it('returns EmotionState shape with value and velocity', () => {
@@ -200,7 +199,7 @@ describe('EmotionStateManager', () => {
 
     it('becomes true after receiving data', () => {
       manager.updateFromBackend(
-        { serene: { value: 0.5, velocity: 0 } },
+        { happy: { value: 0.5, velocity: 0 } },
         Date.now()
       );
       expect(manager.getHasReceivedData()).toBe(true);

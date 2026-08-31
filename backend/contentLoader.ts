@@ -12,9 +12,9 @@
  *
  * Colors file format:
  *   # Comments start with #
- *   serene=#87a99e
- *   vibrant=#ad9387
- *   melancholy=#919baf
+ *   happy=#d4bc82
+ *   horny=#c3829b
+ *   angry=#b95f5a
  */
 
 import { EventEmitter } from 'events';

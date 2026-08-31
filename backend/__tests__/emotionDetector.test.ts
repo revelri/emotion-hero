@@ -22,21 +22,21 @@ describe('EmotionDetector', () => {
       const signals: EmotionalSignal[] = [];
       detector.on('signal', (s: EmotionalSignal) => signals.push(s));
 
-      detector.processRawData('I feel so calm today');
+      detector.processRawData('I feel so happy today');
 
       expect(signals).toHaveLength(1);
-      expect(signals[0].emotions['serene']).toBe(1);
+      expect(signals[0].emotions['happy']).toBe(1);
     });
 
     it('detects multiple emotions in one post', () => {
       const signals: EmotionalSignal[] = [];
       detector.on('signal', (s: EmotionalSignal) => signals.push(s));
 
-      detector.processRawData('I feel calm and happy');
+      detector.processRawData('I feel happy and depressed');
 
       expect(signals).toHaveLength(1);
-      expect(signals[0].emotions['serene']).toBe(1);
-      expect(signals[0].emotions['content']).toBe(1);
+      expect(signals[0].emotions['happy']).toBe(1);
+      expect(signals[0].emotions['depressed']).toBe(1);
     });
 
     it('returns zero counts when no keywords match', () => {
@@ -65,19 +65,19 @@ describe('EmotionDetector', () => {
       const signals: EmotionalSignal[] = [];
       detector.on('signal', (s: EmotionalSignal) => signals.push(s));
 
-      // "bluetooth" should NOT match "blue" (melancholy keyword)
-      detector.processRawData('my bluetooth headset broke');
+      // "angrier" should NOT match "angry" (only exact word matches)
+      detector.processRawData('I am getting angrier by the minute');
 
-      expect(signals[0].emotions['melancholy']).toBe(0);
+      expect(signals[0].emotions['angry']).toBe(0);
     });
 
     it('matches keywords case-insensitively', () => {
       const signals: EmotionalSignal[] = [];
       detector.on('signal', (s: EmotionalSignal) => signals.push(s));
 
-      detector.processRawData('I am CALM and PEACEFUL');
+      detector.processRawData('I am HAPPY today');
 
-      expect(signals[0].emotions['serene']).toBe(2);
+      expect(signals[0].emotions['happy']).toBe(1);
     });
 
     it('does not process data when detector is stopped', async () => {
@@ -85,7 +85,7 @@ describe('EmotionDetector', () => {
       const signals: EmotionalSignal[] = [];
       detector.on('signal', (s: EmotionalSignal) => signals.push(s));
 
-      detector.processRawData('I feel calm');
+      detector.processRawData('I feel happy');
 
       expect(signals).toHaveLength(0);
     });
@@ -97,11 +97,11 @@ describe('EmotionDetector', () => {
       detector.processRawData({
         timestamp: Date.now(),
         source: 'test',
-        data: 'feeling peaceful',
+        data: 'feeling happy',
       });
 
       expect(signals).toHaveLength(1);
-      expect(signals[0].emotions['serene']).toBe(1);
+      expect(signals[0].emotions['happy']).toBe(1);
       expect(signals[0].source).toBe('test');
     });
   });
@@ -120,15 +120,15 @@ describe('EmotionDetector', () => {
       const ratios: EmotionRatios[] = [];
       ratioDetector.on('ratios', (r: EmotionRatios) => ratios.push(r));
 
-      ratioDetector.processRawData('I feel calm');
       ratioDetector.processRawData('I feel happy');
+      ratioDetector.processRawData('I feel depressed');
 
       vi.advanceTimersByTime(150);
 
       expect(ratios.length).toBeGreaterThanOrEqual(1);
       expect(ratios[0].totalHits).toBe(2);
-      expect(ratios[0].ratios['serene']).toBe(0.5);
-      expect(ratios[0].ratios['content']).toBe(0.5);
+      expect(ratios[0].ratios['happy']).toBe(0.5);
+      expect(ratios[0].ratios['depressed']).toBe(0.5);
 
       await ratioDetector.stop();
       vi.useRealTimers();
@@ -185,79 +185,76 @@ describe('EmotionDetector', () => {
   describe('getKeywords', () => {
     it('returns current keywords for all emotions', () => {
       const keywords = detector.getKeywords();
-      expect(keywords).toHaveProperty('serene');
-      expect(keywords).toHaveProperty('vibrant');
-      expect(keywords).toHaveProperty('melancholy');
-      expect(keywords).toHaveProperty('curious');
-      expect(keywords).toHaveProperty('content');
-      expect(Array.isArray(keywords.serene)).toBe(true);
-      expect(keywords.serene.length).toBeGreaterThan(0);
+      expect(keywords).toHaveProperty('happy');
+      expect(keywords).toHaveProperty('horny');
+      expect(keywords).toHaveProperty('angry');
+      expect(keywords).toHaveProperty('depressed');
+      expect(Array.isArray(keywords.happy)).toBe(true);
+      expect(keywords.happy.length).toBeGreaterThan(0);
     });
 
     it('returns the original keywords from shared emotions', () => {
       const keywords = detector.getKeywords();
-      expect(keywords.serene).toContain('calm');
-      expect(keywords.serene).toContain('peaceful');
-      expect(keywords.vibrant).toContain('energetic');
-      expect(keywords.melancholy).toContain('sad');
-      expect(keywords.curious).toContain('interested');
-      expect(keywords.content).toContain('happy');
+      expect(keywords.happy).toEqual(['happy']);
+      expect(keywords.horny).toEqual(['horny']);
+      expect(keywords.angry).toEqual(['angry']);
+      expect(keywords.depressed).toEqual(['depressed']);
     });
   });
 
   describe('updateKeywords', () => {
     it('updates keywords for a single emotion', () => {
-      detector.updateKeywords({ serene: ['zen', 'mellow'] });
+      detector.updateKeywords({ happy: ['zen', 'mellow'] });
       const keywords = detector.getKeywords();
-      expect(keywords.serene).toEqual(['zen', 'mellow']);
+      expect(keywords.happy).toEqual(['zen', 'mellow']);
     });
 
     it('updates keywords for multiple emotions at once', () => {
       detector.updateKeywords({
-        serene: ['zen'],
-        vibrant: ['pumped'],
+        happy: ['zen'],
+        horny: ['pumped'],
       });
       const keywords = detector.getKeywords();
-      expect(keywords.serene).toEqual(['zen']);
-      expect(keywords.vibrant).toEqual(['pumped']);
+      expect(keywords.happy).toEqual(['zen']);
+      expect(keywords.horny).toEqual(['pumped']);
     });
 
     it('emits keywordsUpdated event with the new keyword map', () => {
       const updates: Record<string, string[]>[] = [];
       detector.on('keywordsUpdated', (map: Record<string, string[]>) => updates.push(map));
-      const newKeywords = { serene: ['zen', 'chill'] };
+      const newKeywords = { happy: ['zen', 'chill'] };
       detector.updateKeywords(newKeywords);
       expect(updates).toHaveLength(1);
-      expect(updates[0].serene).toEqual(['zen', 'chill']);
+      expect(updates[0].happy).toEqual(['zen', 'chill']);
     });
 
     it('rebuilds patterns so new keywords are matched', () => {
-      detector.updateKeywords({ serene: ['zen'] });
+      detector.updateKeywords({ happy: ['zen'] });
       const signals: EmotionalSignal[] = [];
       detector.on('signal', (s: EmotionalSignal) => signals.push(s));
       detector.processRawData('I feel so zen today');
       expect(signals).toHaveLength(1);
-      expect(signals[0].emotions['serene']).toBe(1);
+      expect(signals[0].emotions['happy']).toBe(1);
     });
 
     it('removed keywords are no longer matched', () => {
-      detector.updateKeywords({ serene: [] });
+      detector.updateKeywords({ happy: [] });
       const signals: EmotionalSignal[] = [];
       detector.on('signal', (s: EmotionalSignal) => signals.push(s));
-      detector.processRawData('I feel calm and peaceful');
-      expect(signals[0].emotions['serene']).toBe(0);
+      detector.processRawData('I feel happy and very happy indeed');
+      expect(signals[0].emotions['happy']).toBe(0);
     });
 
     it('handles empty keyword list gracefully', () => {
-      expect(() => detector.updateKeywords({ serene: [] })).not.toThrow();
+      expect(() => detector.updateKeywords({ happy: [] })).not.toThrow();
       const keywords = detector.getKeywords();
-      expect(keywords.serene).toEqual([]);
+      expect(keywords.happy).toEqual([]);
     });
 
     it('does not affect other emotions when updating one', () => {
-      const originalVibrant = detector.getKeywords().vibrant;
-      detector.updateKeywords({ serene: ['zen'] });
-      expect(detector.getKeywords().vibrant).toEqual(originalVibrant);
+      const originalHorny = detector.getKeywords().horny;
+      detector.updateKeywords({ happy: ['zen'] });
+      expect(detector.getKeywords().horny).toEqual(originalHorny);
     });
   });
 });

@@ -18,8 +18,14 @@
     --radius: 8px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; background: var(--bg); color: var(--text); padding: 20px; line-height: 1.6; }
+  body { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; background: var(--bg); color: var(--text); line-height: 1.6; display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 480px); min-height: 100vh; }
+  #viz-pane { position: sticky; top: 0; height: 100vh; background: #000; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  #viz-pane .viz-label { padding: 8px 12px; font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.6px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  #viz-pane .viz-label a { color: var(--accent); text-decoration: none; font-size: 0.7rem; }
+  #viz-pane iframe { flex: 1; border: 0; width: 100%; background: #000; }
+  #controls-pane { padding: 20px; overflow-y: auto; }
   h1 { color: var(--accent); margin-bottom: 20px; font-size: 1.4rem; }
+  @media (max-width: 900px) { body { grid-template-columns: 1fr; } #viz-pane { position: relative; height: 50vh; border-right: 0; border-bottom: 1px solid var(--border); } }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; }
   .card-header { padding: 12px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
   .card-header:hover { background: rgba(135,169,158,0.05); }
@@ -65,19 +71,46 @@
   .color-swatch-btn input[type="color"] { position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px); border: none; cursor: pointer; background: none; }
   .color-hex-input { width: 90px; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: inherit; font-size: 0.85rem; }
   .color-hex-input:focus { outline: none; border-color: var(--accent); }
+  .color-rgb-group { display: flex; gap: 4px; align-items: center; }
+  .color-rgb-group span { color: var(--text-dim); font-size: 0.7rem; }
+  .color-rgb-input { width: 48px; padding: 6px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: inherit; font-size: 0.8rem; text-align: center; }
+  .color-rgb-input:focus { outline: none; border-color: var(--accent); }
+  .color-rgb-input::-webkit-outer-spin-button, .color-rgb-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .color-preview { width: 100%; height: 4px; border-radius: 2px; margin-top: 2px; }
+  .effective-endpoint { font-size: 0.7rem; color: var(--text-dim); margin: -4px 0 12px; word-break: break-all; }
+  .effective-endpoint::before { content: ''; }
+  .preset-desc { font-size: 0.8rem; color: var(--text); margin: 8px 0 4px; min-height: 1.2em; }
+  .preset-sections { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 12px; }
+  .preset-empty { font-size: 0.8rem; color: var(--text-dim); }
   @media (max-width: 600px) { body { padding: 10px; } .card-body { padding: 0 10px 10px; } }
 </style>
 </head>
 <body>
+<div id="viz-pane">
+  <div class="viz-label"><span>Live Visualization</span><a href="/viz/" target="_blank">open in tab ↗</a></div>
+  <iframe id="viz-frame" src="/viz/" title="Zeitgeist live visualization"></iframe>
+</div>
+<div id="controls-pane">
 <h1>Zeitgeist Settings</h1>
 <div id="app"></div>
 <div id="toast" class="toast"></div>
+</div>
 <script>
 const API = window.location.origin;
-const EMOTIONS = ['serene', 'vibrant', 'melancholy', 'curious', 'content'];
-const EMOTION_COLORS = { serene: '#87a99e', vibrant: '#ad9387', melancholy: '#919baf', curious: '#a5a091', content: '#9ba591' };
-const SHADER_MODES = ['Voronoi','Curl Noise','Domain-Warped FBM','Metaballs','Flow Field','Reaction-Diffusion','Chladni','Cymatics','Julia Set','Gravity Lens','Attractor','Cracks','Smoke','Topography','Magnetic LIC','Lissajous','Phyllotaxis','Ink Flow'];
+const EMOTIONS = ['happy', 'horny', 'angry', 'depressed'];
+const EMOTION_COLORS = { happy: '#d4bc82', horny: '#c3829b', angry: '#b95f5a', depressed: '#7887a5' };
+
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
+function rgbToHex(r, g, b) {
+  const c = (v) => Math.max(0, Math.min(255, v | 0)).toString(16).padStart(2, '0');
+  return '#' + c(r) + c(g) + c(b);
+}
+let SHADER_MODES = ['Voronoi','Curl Noise','Domain-Warped FBM','Metaballs','Flow Field','Reaction-Diffusion','Chladni','Cymatics','Julia Set','Gravity Lens','Attractor','Cracks','Smoke','Topography','Magnetic LIC','Lissajous','Phyllotaxis','Ink Flow','Readme Hero'];
 
 function el(tag, attrs = {}, children = []) {
   const e = document.createElement(tag);
@@ -147,28 +180,43 @@ function renderColors(colors) {
 
     const swatchBtn = el('div', { className: 'color-swatch-btn' });
     swatchBtn.style.background = color;
-    const picker = el('input', { type: 'color', value: color, 'data-emotion': emotion, oninput: (e) => {
-      const hex = e.target.value;
+
+    const rgbGroup = el('div', { className: 'color-rgb-group' });
+    const [r0, g0, b0] = hexToRgb(color) || [0, 0, 0];
+    const rIn = el('input', { type: 'number', className: 'color-rgb-input', min: 0, max: 255, value: r0 });
+    const gIn = el('input', { type: 'number', className: 'color-rgb-input', min: 0, max: 255, value: g0 });
+    const bIn = el('input', { type: 'number', className: 'color-rgb-input', min: 0, max: 255, value: b0 });
+    rgbGroup.append(el('span', { textContent: 'R' }), rIn, el('span', { textContent: 'G' }), gIn, el('span', { textContent: 'B' }), bIn);
+
+    const applyHex = (hex) => {
       swatchBtn.style.background = hex;
+      picker.value = hex;
       hexInput.value = hex;
+      const rgb = hexToRgb(hex);
+      if (rgb) { rIn.value = rgb[0]; gIn.value = rgb[1]; bIn.value = rgb[2]; }
       currentColors[emotion] = hex;
-    }});
+    };
+
+    const picker = el('input', { type: 'color', value: color, 'data-emotion': emotion, oninput: (e) => applyHex(e.target.value) });
     swatchBtn.appendChild(picker);
 
     const hexInput = el('input', { type: 'text', className: 'color-hex-input', value: color, placeholder: '#000000', 'data-emotion': emotion, onchange: (e) => {
       let val = e.target.value.trim();
       if (!val.startsWith('#')) val = '#' + val;
-      if (/^#[0-9a-fA-F]{6}$/.test(val)) {
-        swatchBtn.style.background = val;
-        picker.value = val;
-        currentColors[emotion] = val;
-      } else {
-        toast('Invalid hex: use format #RRGGBB', 'error');
-        e.target.value = currentColors[emotion];
-      }
+      if (/^#[0-9a-fA-F]{6}$/.test(val)) applyHex(val);
+      else { toast('Invalid hex: use format #RRGGBB', 'error'); e.target.value = currentColors[emotion]; }
     }});
 
-    row.append(label, swatchBtn, hexInput);
+    const onRgbInput = () => {
+      const r = parseInt(rIn.value, 10), g = parseInt(gIn.value, 10), b = parseInt(bIn.value, 10);
+      if ([r, g, b].some(v => isNaN(v) || v < 0 || v > 255)) return;
+      applyHex(rgbToHex(r, g, b));
+    };
+    rIn.addEventListener('input', onRgbInput);
+    gIn.addEventListener('input', onRgbInput);
+    bIn.addEventListener('input', onRgbInput);
+
+    row.append(label, swatchBtn, hexInput, rgbGroup);
     c.appendChild(row);
   }
   const saveBtn = el('button', { className: 'btn', textContent: 'Save Colors', onclick: async () => {
@@ -185,7 +233,11 @@ function renderFirehose(fh) {
   const c = document.getElementById('firehose-content');
   if (!c || !fh) return;
   c.innerHTML = '';
-  const endpointField = makeField('Endpoint', 'fh-endpoint', el('input', { type: 'text', value: fh.endpoint || '', id: 'fh-endpoint' }));
+  const endpointInput = el('input', { type: 'text', value: fh.endpoint || '', id: 'fh-endpoint' });
+  if (fh.defaultEndpoint) endpointInput.placeholder = fh.defaultEndpoint;
+  const endpointField = makeField('Endpoint override (leave empty for default)', 'fh-endpoint', endpointInput);
+  const effective = el('div', { className: 'effective-endpoint' });
+  effective.textContent = 'In use: ' + (fh.effectiveEndpoint || fh.defaultEndpoint || '(none)');
   const retryField = makeField('Retry Interval (ms)', 'fh-retry', el('input', { type: 'number', value: fh.retryInterval, id: 'fh-retry', step: 500 }));
   const maxRetriesField = makeField('Max Retries', 'fh-max-retries', el('input', { type: 'number', value: fh.maxRetries, id: 'fh-max-retries' }));
   const saveBtn = el('button', { className: 'btn', textContent: 'Save', onclick: async () => {
@@ -194,7 +246,7 @@ function renderFirehose(fh) {
       if (r.status === 200) toast('Firehose settings saved'); else toast(r.data.error, 'error');
     } catch (e) { toast('Failed to save', 'error'); }
   } });
-  c.append(endpointField, retryField, maxRetriesField, saveBtn);
+  c.append(endpointField, effective, retryField, maxRetriesField, saveBtn);
 }
 
 function renderKeywords(kw) {
@@ -245,6 +297,9 @@ function renderSignal(sig) {
 function renderVisualization(viz) {
   const c = document.getElementById('viz-content');
   if (!c || !viz) return;
+  if (Array.isArray(viz.shaderModeNames) && viz.shaderModeNames.length > 0) {
+    SHADER_MODES = viz.shaderModeNames;
+  }
   c.innerHTML = '';
   const select = el('select', { id: 'viz-shader' });
   SHADER_MODES.forEach((name, i) => select.appendChild(el('option', { value: i, textContent: name })));
@@ -283,9 +338,50 @@ async function loadStatus() {
   } catch (e) { console.error('Failed to load status:', e); }
 }
 
+async function loadPresets() {
+  const c = document.getElementById('presets-content');
+  if (!c) return;
+  try {
+    const { data } = await api('/api/presets');
+    c.innerHTML = '';
+    const presets = (data && data.presets) || [];
+    if (presets.length === 0) {
+      c.appendChild(el('p', { className: 'preset-empty', textContent: 'No presets found. Drop a .json file into backend/content/presets/ — it appears here on the next refresh.' }));
+      return;
+    }
+    const select = el('select', { id: 'preset-select' });
+    select.appendChild(el('option', { value: '', textContent: '— pick a preset —' }));
+    for (const p of presets) {
+      const opt = el('option', { value: p.id, textContent: p.name });
+      if (p.description) opt.title = p.description;
+      select.appendChild(opt);
+    }
+    const desc = el('div', { className: 'preset-desc', textContent: '' });
+    const sections = el('div', { className: 'preset-sections', textContent: '' });
+    select.addEventListener('change', () => {
+      const p = presets.find((x) => x.id === select.value);
+      desc.textContent = p && p.description ? p.description : '';
+      sections.textContent = p ? 'Will apply: ' + p.sections.join(', ') : '';
+    });
+    const applyBtn = el('button', { className: 'btn', textContent: 'Apply preset', onclick: async () => {
+      if (!select.value) { toast('Select a preset first', 'error'); return; }
+      const r = await api('/api/presets/apply', 'PUT', { id: select.value });
+      if (r.status === 200) {
+        toast(`Applied "${r.data.preset.name}" — ${r.data.applied.join(', ')}`);
+        loadSettings();
+      } else {
+        toast(r.data.error || 'Apply failed', 'error');
+      }
+    }});
+    const refreshBtn = el('button', { className: 'btn', textContent: 'Refresh list', onclick: loadPresets });
+    c.append(makeField('Preset', 'preset-select', select), desc, sections, applyBtn, refreshBtn);
+  } catch (e) { console.error('Failed to load presets:', e); }
+}
+
 function init() {
   const app = document.getElementById('app');
   const cards = [
+    makeCard('Presets', 'presets', () => {}),
     makeCard('Jetstream / Firehose', 'firehose', () => {}),
     makeCard('Emotion Colors', 'colors', () => {}),
     makeCard('Emotion Keywords', 'keywords', () => {}),
@@ -295,6 +391,7 @@ function init() {
     makeCard('System Status', 'status', () => {}),
   ];
   for (const { card } of cards) app.appendChild(card);
+  loadPresets();
   loadSettings();
   loadStatus();
   setInterval(loadStatus, 2000);

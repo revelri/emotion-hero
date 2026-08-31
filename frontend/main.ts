@@ -154,9 +154,10 @@ function dismissLoadingOverlay(): void {
  */
 function connectWebSocket(): void {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.hostname || 'localhost';
-    const wsPort = '8080';
-    const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}`;
+    // Same-origin WS: the backend serves HTTP and WS on the same port (default 8081).
+    // Standalone (file://) fallback uses localhost:8081.
+    const wsHostPort = window.location.host || 'localhost:8081';
+    const wsUrl = `${wsProtocol}//${wsHostPort}`;
     
     ws = new WebSocket(wsUrl);
     
@@ -280,6 +281,12 @@ function handleEmotionData(data: any): void {
     // Update the emotion state manager with backend data
     // This sets target values; interpolation will be applied in render loop
     emotionStateManager.updateFromBackend(emotions, timestamp);
+
+    // Drive the legend directly off the WS-delivered (backend-smoothed) values so
+    // the % ticks at the signal-processing cadence, not the render lerp. Keep the
+    // canvas using interpolated states for smooth color motion.
+    const legendValues = EMOTIONS.map(e => emotions[e.id]?.value ?? 0);
+    updateLegend(legendValues);
 }
 
 /**
@@ -306,7 +313,24 @@ function handleContentData(data: any): void {
             }
         }
         updateColorsStatus(dynamicColors.size);
+        repaintLegendSwatches();
         console.log(`[Content] Updated colors for ${dynamicColors.size} emotions`);
+    }
+}
+
+/**
+ * Repaint legend swatches from dynamicColors so the legend matches what the
+ * renderer actually draws. The static colors baked into index.html are only
+ * a first-paint fallback; once the backend sends a content message, this
+ * function takes over.
+ */
+function repaintLegendSwatches(): void {
+    for (const emotion of EMOTIONS) {
+        const rgb = dynamicColors.get(emotion.id) ?? emotion.colorRGB;
+        const item = document.getElementById('val-' + emotion.id)?.parentElement;
+        if (!item) continue;
+        const swatch = item.querySelector('.legend-color') as HTMLElement | null;
+        if (swatch) swatch.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
     }
 }
 
@@ -362,8 +386,9 @@ function render(timestamp: number): void {
     // Update the renderer with the interpolated emotional data
     renderer.setEmotionData(colors, values, velocities);
 
-    // Update legend with current percentages
-    updateLegend(values);
+    // Note: the legend is updated in handleEmotionData() on each WS tick so the
+    // displayed % stays in sync with the backend signal-smoothing cadence,
+    // not the render lerp.
 
     // Respect reduced motion preference
     renderer.setReducedMotion(prefersReducedMotion);
@@ -377,21 +402,19 @@ function render(timestamp: number): void {
 }
 
 /**
- * Update the legend with current emotion percentages
+ * Update the legend with current emotion percentages.
+ * Called from handleEmotionData() — runs at the WS broadcast cadence (≤10 Hz
+ * by default), which matches the backend signal smoothing tick.
  */
-let lastLegendUpdate = 0;
 function updateLegend(values: number[]): void {
-    // Throttle updates to 10fps to avoid DOM thrashing
-    const now = performance.now();
-    if (now - lastLegendUpdate < 100) return;
-    lastLegendUpdate = now;
-
-    const ids = ['serene', 'vibrant', 'melancholy', 'curious', 'content'];
+    const ids = EMOTIONS.map(e => e.id);
     for (let i = 0; i < ids.length; i++) {
         const el = document.getElementById('val-' + ids[i]);
         if (el) {
-            const pct = Math.round((values[i] || 0) * 100);
-            el.textContent = pct + '%';
+            const v = (values[i] || 0) * 100;
+            // 1 decimal under 10%, integer above — keeps tiny non-zero
+            // signals honest without becoming noisy for big values.
+            el.textContent = (v < 10 ? v.toFixed(1) : Math.round(v).toString()) + '%';
         }
     }
 }
@@ -528,7 +551,7 @@ function setupShaderModeKeys(): void {
     const keyMap: Record<string, number> = {};
     for (let d = 1; d <= 9; d++) keyMap[String(d)] = d - 1;
     keyMap['0'] = 9;
-    const letters = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i'];
+    const letters = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o'];
     letters.forEach((k, idx) => { keyMap[k] = 10 + idx; });
 
     window.addEventListener('keydown', (e) => {

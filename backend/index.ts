@@ -200,6 +200,24 @@ class EmotionalVisualizationBackend {
       throw new Error('Components not initialized');
     }
 
+    // Start the settings HTTP server first so we can share its http.Server
+    // with the WS server — single port for the whole consolidated backend.
+    const settingsPort = parseInt(process.env.SETTINGS_PORT || '8081', 10);
+    this.settingsApi = new SettingsApi({
+      port: settingsPort,
+      firehose: this.firehose as any,
+      emotionDetector: this.emotionDetector,
+      signalProcessor: this.signalProcessor,
+      wsServer: this.wsServer,
+      contentLoader: this.contentLoader,
+    });
+    await this.settingsApi.start();
+
+    // Attach WS server to the same http.Server (so port 8081 carries both).
+    const sharedHttp = this.settingsApi.getHttpServer();
+    if (sharedHttp) {
+      (this.wsServer as any).config.httpServer = sharedHttp;
+    }
     await this.wsServer.start();
     await this.contentLoader.start();
     await this.signalProcessor.start();
@@ -214,17 +232,7 @@ class EmotionalVisualizationBackend {
       colors: contentState.colors,
     });
 
-    const settingsPort = parseInt(process.env.SETTINGS_PORT || '8081', 10);
-    this.settingsApi = new SettingsApi({
-      port: settingsPort,
-      firehose: this.firehose as any,
-      emotionDetector: this.emotionDetector,
-      signalProcessor: this.signalProcessor,
-      wsServer: this.wsServer,
-      contentLoader: this.contentLoader,
-    });
-    await this.settingsApi.start();
-    console.log(`[Settings] HTTP API available at http://localhost:${this.settingsApi.getPort()}`);
+    console.log(`[Settings] HTTP+WS available at http://localhost:${this.settingsApi.getPort()}`);
   }
 
   /**

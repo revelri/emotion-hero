@@ -33,58 +33,24 @@ export interface EmotionState {
  */
 export const EMOTIONS: readonly Emotion[] = [
   {
-    id: 'serene',
-    keywords: [
-      'calm', 'peaceful', 'tranquil', 'relaxed', 'quiet', 'still', 'gentle',
-      'chill', 'cozy', 'soothing', 'mellow', 'zen', 'sleep', 'sleeping',
-      'rest', 'nap', 'bed', 'tired', 'goodnight', 'morning', 'coffee',
-      'rain', 'slow', 'breathe', 'meditate', 'easy',
-    ],
-    colorRGB: [135, 169, 158], // Muted teal-green
+    id: 'happy',
+    keywords: ['happy'],
+    colorRGB: [212, 188, 130], // Muted warm gold
   },
   {
-    id: 'vibrant',
-    keywords: [
-      'energetic', 'lively', 'dynamic', 'active', 'awake', 'alert', 'spirited',
-      'hype', 'hyped', 'pumped', 'lets go', 'fire', 'lit', 'amazing',
-      'incredible', 'insane', 'wild', 'crazy', 'omg', 'wow', 'lol',
-      'lmao', 'haha', 'funny', 'hilarious', 'exciting', 'party',
-      'love', 'awesome', 'yay', 'woohoo', 'epic', 'banger',
-    ],
-    colorRGB: [173, 147, 135], // Soft terracotta
+    id: 'horny',
+    keywords: ['horny'],
+    colorRGB: [195, 130, 155], // Muted dusty rose
   },
   {
-    id: 'melancholy',
-    keywords: [
-      'sad', 'somber', 'pensive', 'wistful', 'reflective', 'blue', 'down',
-      'miss', 'missing', 'lost', 'gone', 'alone', 'lonely', 'cry',
-      'crying', 'tears', 'heartbreak', 'grief', 'sorry', 'hurt',
-      'pain', 'depressed', 'struggling', 'hard', 'tough', 'exhausted',
-      'broken', 'sigh', 'wish', 'regret', 'ugh', 'worst',
-    ],
-    colorRGB: [145, 155, 175], // Muted slate blue
+    id: 'angry',
+    keywords: ['angry'],
+    colorRGB: [185, 95, 90], // Muted brick red
   },
   {
-    id: 'curious',
-    keywords: [
-      'interested', 'inquisitive', 'wondering', 'exploring', 'attentive', 'eager',
-      'how', 'why', 'what', 'anyone', 'question', 'think', 'thinking',
-      'wonder', 'curious', 'learn', 'learning', 'research', 'reading',
-      'interesting', 'fascinating', 'cool', 'weird', 'wild', 'new',
-      'discovered', 'found', 'noticed', 'idea', 'theory', 'hmm',
-    ],
-    colorRGB: [165, 160, 145], // Soft warm gray
-  },
-  {
-    id: 'content',
-    keywords: [
-      'satisfied', 'happy', 'pleased', 'fulfilled', 'grateful', 'comfortable',
-      'good', 'great', 'nice', 'lovely', 'beautiful', 'perfect', 'blessed',
-      'thankful', 'thanks', 'thank', 'glad', 'enjoy', 'enjoyed', 'wonderful',
-      'sweet', 'kind', 'proud', 'accomplished', 'done', 'finished',
-      'home', 'family', 'friend', 'friends', 'warm', 'safe', 'smile',
-    ],
-    colorRGB: [155, 165, 145], // Muted olive green
+    id: 'depressed',
+    keywords: ['depressed'],
+    colorRGB: [120, 135, 165], // Muted slate blue
   },
 ] as const;
 

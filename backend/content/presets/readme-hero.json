@@ -1,0 +1,16 @@
+{
+  "name": "Readme Hero",
+  "description": "Faithful port of hero.svg: glyphs always fully visible, four fixed emotion blobs, 8 s opacity pulse. Moderate smoothing so colours drift instead of twitch while still decaying between hits.",
+  "visualization": {
+    "shaderMode": 18,
+    "feedbackStrength": 0.0,
+    "reducedMotion": false
+  },
+  "signal": {
+    "minCutoff": 0.6,
+    "beta": 0.002
+  },
+  "detector": {
+    "windowDuration": 1500
+  }
+}

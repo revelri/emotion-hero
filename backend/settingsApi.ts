@@ -14,7 +14,7 @@ const SHADER_MODE_NAMES = [
   'Flow Field', 'Reaction-Diffusion', 'Chladni', 'Cymatics',
   'Julia Set', 'Gravity Lens', 'Attractor', 'Cracks',
   'Smoke', 'Topography', 'Magnetic LIC', 'Lissajous',
-  'Phyllotaxis', 'Ink Flow',
+  'Phyllotaxis', 'Ink Flow', 'Readme Hero',
 ];
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,7 +22,7 @@ const __dirname = path.dirname(__filename);
 
 interface SettingsApiConfig {
   port?: number;
-  firehose: { getStatus(): unknown; config: { endpoint?: string; retryInterval: number; maxRetries: number }; setConfig?(c: Partial<{ endpoint: string; retryInterval: number; maxRetries: number }>): void };
+  firehose: { getStatus(): unknown; getEffectiveEndpoint?(): string; getDefaultEndpoint?(): string; config: { endpoint?: string; retryInterval: number; maxRetries: number }; setConfig?(c: Partial<{ endpoint: string; retryInterval: number; maxRetries: number }>): void };
   emotionDetector: EmotionDetector;
   signalProcessor: SignalProcessor;
   wsServer: WsServer;
@@ -69,6 +69,7 @@ export class SettingsApi extends EventEmitter {
   private config: SettingsApiConfig;
   private startTime: number = Date.now();
   private settingsHtml: string | null = null;
+  private vizDir: string | null = null;
 
   constructor(config: SettingsApiConfig) {
     super();
@@ -87,6 +88,14 @@ export class SettingsApi extends EventEmitter {
     } catch {
       this.settingsHtml = '<h1>Settings GUI not found</h1><p>Place settings.html in backend/static/</p>';
     }
+
+    // Locate the sibling frontend/ directory for the embedded viz preview.
+    // Try dist layout (backend/dist -> ../../frontend) then source (backend -> ../frontend).
+    const candidates = [
+      path.join(__dirname, '..', '..', 'frontend'),
+      path.join(__dirname, '..', 'frontend'),
+    ];
+    this.vizDir = candidates.find((p) => fs.existsSync(path.join(p, 'index.html'))) ?? null;
 
     this.port = await findAvailablePort(this.port);
     this.startTime = Date.now();
@@ -114,6 +123,11 @@ export class SettingsApi extends EventEmitter {
       return;
     }
 
+    if (req.method === 'GET' && url.pathname.startsWith('/viz')) {
+      this.serveVizFile(url.pathname, res);
+      return;
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/settings') {
       json(res, this.getAllSettings());
       return;
@@ -121,6 +135,11 @@ export class SettingsApi extends EventEmitter {
 
     if (req.method === 'GET' && url.pathname === '/api/status') {
       json(res, this.getStatus());
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/presets') {
+      json(res, { presets: this.listPresets() });
       return;
     }
 
@@ -136,6 +155,84 @@ export class SettingsApi extends EventEmitter {
     }
 
     json(res, { error: 'Not found' }, 404);
+  }
+
+  private getPresetsDir(): string {
+    // Mirrors contentLoader's dist/source resolution
+    const candidates = [
+      path.join(__dirname, '..', '..', 'backend', 'content', 'presets'),
+      path.join(__dirname, '..', 'content', 'presets'),
+      path.join(__dirname, 'content', 'presets'),
+    ];
+    return candidates.find((p) => fs.existsSync(p)) ?? candidates[1];
+  }
+
+  private listPresets(): Array<{ id: string; name: string; description?: string; sections: string[] }> {
+    const dir = this.getPresetsDir();
+    if (!fs.existsSync(dir)) return [];
+    const out: Array<{ id: string; name: string; description?: string; sections: string[] }> = [];
+    for (const file of fs.readdirSync(dir).sort()) {
+      if (!file.endsWith('.json')) continue;
+      try {
+        const raw = fs.readFileSync(path.join(dir, file), 'utf-8');
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const id = file.replace(/\.json$/, '');
+        out.push({
+          id,
+          name: typeof parsed.name === 'string' ? parsed.name : id,
+          description: typeof parsed.description === 'string' ? parsed.description : undefined,
+          sections: ['visualization', 'signal', 'detector', 'colors', 'keywords', 'firehose'].filter((s) => s in parsed),
+        });
+      } catch {
+        // skip unparseable preset
+      }
+    }
+    return out;
+  }
+
+  private loadPreset(id: string): Record<string, unknown> | null {
+    const file = path.join(this.getPresetsDir(), `${id}.json`);
+    if (!fs.existsSync(file)) return null;
+    if (!path.normalize(file).startsWith(this.getPresetsDir())) return null;
+    try { return JSON.parse(fs.readFileSync(file, 'utf-8')) as Record<string, unknown>; } catch { return null; }
+  }
+
+  private serveVizFile(pathname: string, res: http.ServerResponse): void {
+    if (!this.vizDir) {
+      json(res, { error: 'frontend directory not found' }, 404);
+      return;
+    }
+    // Strip /viz prefix and treat /viz or /viz/ as index.html
+    let rel = pathname.replace(/^\/viz\/?/, '') || 'index.html';
+    if (rel.endsWith('/')) rel += 'index.html';
+    // Path traversal guard
+    const resolved = path.normalize(path.join(this.vizDir, rel));
+    if (!resolved.startsWith(this.vizDir)) {
+      json(res, { error: 'forbidden' }, 403);
+      return;
+    }
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+      json(res, { error: 'not found' }, 404);
+      return;
+    }
+    const ext = path.extname(resolved).toLowerCase();
+    const mime: Record<string, string> = {
+      '.html': 'text/html; charset=utf-8',
+      '.js': 'application/javascript; charset=utf-8',
+      '.map': 'application/json; charset=utf-8',
+      '.css': 'text/css; charset=utf-8',
+      '.json': 'application/json; charset=utf-8',
+      '.svg': 'image/svg+xml',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.woff2': 'font/woff2',
+    };
+    const body = fs.readFileSync(resolved);
+    res.writeHead(200, {
+      'Content-Type': mime[ext] || 'application/octet-stream',
+      'Content-Length': body.length,
+    });
+    res.end(body);
   }
 
   private handlePut(pathname: string, body: unknown, res: http.ServerResponse): void {
@@ -158,6 +255,9 @@ export class SettingsApi extends EventEmitter {
         break;
       case '/api/settings/colors':
         this.handleColorsUpdate(body, res);
+        break;
+      case '/api/presets/apply':
+        this.handleApplyPreset(body, res);
         break;
       default:
         json(res, { error: 'Not found' }, 404);
@@ -348,11 +448,113 @@ export class SettingsApi extends EventEmitter {
     }
   }
 
+  private async handleApplyPreset(body: unknown, res: http.ServerResponse): Promise<void> {
+    if (typeof body !== 'object' || body === null) {
+      json(res, { error: 'Body must be { id: string }' }, 400);
+      return;
+    }
+    const data = body as Record<string, unknown>;
+    if (typeof data.id !== 'string') {
+      json(res, { error: 'id must be a string' }, 400);
+      return;
+    }
+    const preset = this.loadPreset(data.id);
+    if (!preset) {
+      json(res, { error: `Preset '${data.id}' not found` }, 404);
+      return;
+    }
+
+    const applied: string[] = [];
+
+    // visualization → broadcast to clients
+    if (typeof preset.visualization === 'object' && preset.visualization !== null) {
+      const v = preset.visualization as Record<string, unknown>;
+      const settings: { shaderMode?: number; feedbackStrength?: number; reducedMotion?: boolean } = {};
+      if (typeof v.shaderMode === 'number') settings.shaderMode = v.shaderMode;
+      if (typeof v.feedbackStrength === 'number') settings.feedbackStrength = v.feedbackStrength;
+      if (typeof v.reducedMotion === 'boolean') settings.reducedMotion = v.reducedMotion;
+      if (Object.keys(settings).length > 0) {
+        this.config.wsServer.broadcastSettings(settings);
+        applied.push('visualization');
+      }
+    }
+
+    // signal smoothing
+    if (typeof preset.signal === 'object' && preset.signal !== null) {
+      const s = preset.signal as Record<string, unknown>;
+      const updates: Partial<{ minCutoff: number; beta: number }> = {};
+      if (typeof s.minCutoff === 'number') updates.minCutoff = s.minCutoff;
+      if (typeof s.beta === 'number') updates.beta = s.beta;
+      if (Object.keys(updates).length > 0) {
+        this.config.signalProcessor.updateConfig(updates);
+        applied.push('signal');
+      }
+    }
+
+    // detector window
+    if (typeof preset.detector === 'object' && preset.detector !== null) {
+      const d = preset.detector as Record<string, unknown>;
+      if (typeof d.windowDuration === 'number') {
+        this.config.emotionDetector.setWindowDuration(d.windowDuration);
+        applied.push('detector');
+      }
+    }
+
+    // keywords
+    if (typeof preset.keywords === 'object' && preset.keywords !== null && !Array.isArray(preset.keywords)) {
+      const kw = preset.keywords as Record<string, unknown>;
+      const updates: Record<string, string[]> = {};
+      for (const [id, list] of Object.entries(kw)) {
+        if (Array.isArray(list) && list.every((x) => typeof x === 'string')) {
+          updates[id] = list as string[];
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        this.config.emotionDetector.updateKeywords(updates);
+        applied.push('keywords');
+      }
+    }
+
+    // colors (persisted to colors.txt)
+    if (typeof preset.colors === 'object' && preset.colors !== null && !Array.isArray(preset.colors) && this.config.contentLoader) {
+      const cols = preset.colors as Record<string, unknown>;
+      const merged: Record<string, string> = {};
+      const current = this.config.contentLoader.getState().colors;
+      for (const [id, c] of Object.entries(current)) merged[id] = c.hex;
+      const hexRegex = /^#?[0-9a-fA-F]{6}$/;
+      for (const [id, hex] of Object.entries(cols)) {
+        if (typeof hex === 'string' && hexRegex.test(hex)) {
+          merged[id] = hex.startsWith('#') ? hex : `#${hex}`;
+        }
+      }
+      try {
+        await this.config.contentLoader.updateColors(merged);
+        applied.push('colors');
+      } catch {
+        // silently skip; the rest of the preset still applies
+      }
+    }
+
+    // firehose endpoint / retry
+    if (typeof preset.firehose === 'object' && preset.firehose !== null) {
+      const f = preset.firehose as Record<string, unknown>;
+      const fh = this.config.firehose;
+      if (typeof f.endpoint === 'string') fh.config.endpoint = f.endpoint;
+      if (typeof f.retryInterval === 'number' && f.retryInterval >= 100) fh.config.retryInterval = f.retryInterval;
+      if (typeof f.maxRetries === 'number' && f.maxRetries >= 0) fh.config.maxRetries = f.maxRetries;
+      applied.push('firehose');
+    }
+
+    json(res, { ok: true, applied, preset: { id: data.id, name: preset.name } });
+  }
+
   private getAllSettings(): Record<string, unknown> {
     const firehose = this.config.firehose;
     return {
       firehose: {
         endpoint: firehose.config.endpoint || null,
+        defaultEndpoint: firehose.getDefaultEndpoint?.() ?? null,
+        effectiveEndpoint: firehose.getEffectiveEndpoint?.() ?? firehose.config.endpoint ?? null,
         retryInterval: firehose.config.retryInterval,
         maxRetries: firehose.config.maxRetries,
       },
@@ -381,5 +583,9 @@ export class SettingsApi extends EventEmitter {
 
   getPort(): number {
     return this.port;
+  }
+
+  getHttpServer(): http.Server | null {
+    return this.server;
   }
 }

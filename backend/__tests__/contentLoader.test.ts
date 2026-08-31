@@ -19,17 +19,17 @@ describe('ContentLoader', () => {
     it('loads colors from colors.txt', async () => {
       fs.writeFileSync(
         path.join(tmpDir, 'colors.txt'),
-        'serene=#87a99e\nvibrant=#ad9387\n'
+        'happy=#87a99e\nhorny=#ad9387\n'
       );
 
       const loader = new ContentLoader({ contentDir: tmpDir });
       await loader.start();
 
       const state = loader.getState();
-      expect(state.colors['serene']).toBeDefined();
-      expect(state.colors['serene'].hex).toBe('#87a99e');
-      expect(state.colors['serene'].rgb).toEqual([0x87, 0xa9, 0x9e]);
-      expect(state.colors['vibrant']).toBeDefined();
+      expect(state.colors['happy']).toBeDefined();
+      expect(state.colors['happy'].hex).toBe('#87a99e');
+      expect(state.colors['happy'].rgb).toEqual([0x87, 0xa9, 0x9e]);
+      expect(state.colors['horny']).toBeDefined();
 
       await loader.stop();
     });
@@ -37,7 +37,7 @@ describe('ContentLoader', () => {
     it('skips comments and blank lines', async () => {
       fs.writeFileSync(
         path.join(tmpDir, 'colors.txt'),
-        '# This is a comment\n\nserene=#87a99e\n# Another comment\n'
+        '# This is a comment\n\nhappy=#87a99e\n# Another comment\n'
       );
 
       const loader = new ContentLoader({ contentDir: tmpDir });
@@ -45,7 +45,7 @@ describe('ContentLoader', () => {
 
       const state = loader.getState();
       expect(Object.keys(state.colors)).toHaveLength(1);
-      expect(state.colors['serene']).toBeDefined();
+      expect(state.colors['happy']).toBeDefined();
 
       await loader.stop();
     });
@@ -61,13 +61,13 @@ describe('ContentLoader', () => {
     });
 
     it('normalizes emotion IDs to lowercase', async () => {
-      fs.writeFileSync(path.join(tmpDir, 'colors.txt'), 'Serene=#87a99e\n');
+      fs.writeFileSync(path.join(tmpDir, 'colors.txt'), 'Happy=#87a99e\n');
 
       const loader = new ContentLoader({ contentDir: tmpDir });
       await loader.start();
 
       const state = loader.getState();
-      expect(state.colors['serene']).toBeDefined();
+      expect(state.colors['happy']).toBeDefined();
 
       await loader.stop();
     });
@@ -156,7 +156,7 @@ describe('ContentLoader', () => {
 
   describe('getStatus', () => {
     it('returns status object', async () => {
-      fs.writeFileSync(path.join(tmpDir, 'colors.txt'), 'serene=#87a99e\n');
+      fs.writeFileSync(path.join(tmpDir, 'colors.txt'), 'happy=#87a99e\n');
 
       const loader = new ContentLoader({ contentDir: tmpDir });
       await loader.start();

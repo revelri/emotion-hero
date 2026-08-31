@@ -1,0 +1,16 @@
+{
+  "name": "Firehose Default",
+  "description": "Original shipping defaults — Voronoi cells, fast response, light smoothing.",
+  "visualization": {
+    "shaderMode": 0,
+    "feedbackStrength": 0.5,
+    "reducedMotion": false
+  },
+  "signal": {
+    "minCutoff": 1.0,
+    "beta": 0.007
+  },
+  "detector": {
+    "windowDuration": 1500
+  }
+}

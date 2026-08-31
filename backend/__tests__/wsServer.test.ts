@@ -69,7 +69,7 @@ describe('WsServer', () => {
 
   it('sends initial emotion state on connect', async () => {
     server.updateState({
-      serene: { value: 0.5, velocity: 0.1 },
+      happy: { value: 0.5, velocity: 0.1 },
     });
 
     const { ws, waitForMessages } = createClient();
@@ -93,13 +93,13 @@ describe('WsServer', () => {
     c2.messages.length = 0;
 
     server.updateState({
-      serene: { value: 0.8, velocity: 0.2 },
+      happy: { value: 0.8, velocity: 0.2 },
     });
 
     await new Promise((r) => setTimeout(r, 200));
     expect(c1.messages.length).toBeGreaterThanOrEqual(1);
     expect(c1.messages[0].type).toBe('emotions');
-    expect(c1.messages[0].emotions.serene.value).toBe(0.8);
+    expect(c1.messages[0].emotions.happy.value).toBe(0.8);
 
     c1.ws.close();
     c2.ws.close();
@@ -135,7 +135,7 @@ describe('WsServer', () => {
     expect(server.getClientCount()).toBe(0);
 
     // Broadcast should not throw with 0 clients
-    server.updateState({ serene: { value: 0.5, velocity: 0 } });
+    server.updateState({ happy: { value: 0.5, velocity: 0 } });
   });
 
   it('rate limits broadcasts', async () => {
@@ -144,7 +144,7 @@ describe('WsServer', () => {
     c.messages.length = 0;
 
     for (let i = 0; i < 100; i++) {
-      server.updateState({ serene: { value: i / 100, velocity: 0 } });
+      server.updateState({ happy: { value: i / 100, velocity: 0 } });
     }
 
     await new Promise((r) => setTimeout(r, 300));
